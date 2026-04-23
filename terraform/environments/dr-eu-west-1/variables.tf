@@ -1,5 +1,5 @@
 ############################################################
-# DR environment (eu-west-1) — inputs
+# DR environment (eu-west-1) - inputs
 ############################################################
 
 variable "project_name" {
@@ -45,7 +45,7 @@ variable "private_app_subnet_cidrs" {
 }
 
 variable "private_data_subnet_cidrs" {
-  description = "Private data subnet CIDRs (Aurora reader, ElastiCache)."
+  description = "Private data subnet CIDRs (RDS replica, ElastiCache)."
   type        = list(string)
   default     = ["10.1.20.0/24", "10.1.21.0/24"]
 }
@@ -69,19 +69,25 @@ variable "enable_interface_endpoints" {
 }
 
 ############################################################
-# Phase 2 — Data layer
+# Phase 2 - Data layer
 ############################################################
 
-variable "aurora_engine_version" {
-  description = "Aurora PostgreSQL engine version (must match primary)."
+variable "postgres_instance_class" {
+  description = "RDS replica instance class. db.t3.micro matches primary for free tier."
   type        = string
-  default     = "15.4"
+  default     = "db.t3.micro"
 }
 
-variable "aurora_instance_class" {
-  description = "Aurora DR reader instance class."
-  type        = string
-  default     = "db.t4g.medium"
+variable "postgres_multi_az" {
+  description = "Enable Multi-AZ for the DR replica. Usually false to save cost."
+  type        = bool
+  default     = false
+}
+
+variable "enable_dr_replica" {
+  description = "Create the cross-region RDS read replica. Requires the primary env to already exist AND to have been applied with enable_cross_region_replica = true."
+  type        = bool
+  default     = false
 }
 
 variable "redis_node_type" {
@@ -91,7 +97,7 @@ variable "redis_node_type" {
 }
 
 ############################################################
-# Phase 5 — DR
+# Phase 5 - DR
 ############################################################
 
 variable "dr_alb_domain_name" {

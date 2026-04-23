@@ -1,5 +1,5 @@
 ############################################################
-# Two aliased providers — one per region. The peering module
+# Two aliased providers - one per region. The peering module
 # is configured with these aliases to drive both sides of the
 # cross-region VPC peering from a single Terraform run.
 ############################################################

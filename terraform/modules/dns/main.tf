@@ -1,5 +1,5 @@
 ############################################################
-# DNS — public + private hosted zones, failover records,
+# DNS - public + private hosted zones, failover records,
 # SES DKIM/SPF/DMARC, health checks.
 ############################################################
 
@@ -8,7 +8,7 @@ locals {
 }
 
 # ----------------------------------------------------------
-# Public hosted zone — $0.50/mo
+# Public hosted zone - $0.50/mo
 # ----------------------------------------------------------
 
 resource "aws_route53_zone" "public" {
@@ -17,7 +17,7 @@ resource "aws_route53_zone" "public" {
 }
 
 # ----------------------------------------------------------
-# Private hosted zone — free, associated with the VPC
+# Private hosted zone - free, associated with the VPC
 # ----------------------------------------------------------
 
 resource "aws_route53_zone" "private" {
@@ -31,7 +31,7 @@ resource "aws_route53_zone" "private" {
 }
 
 # ----------------------------------------------------------
-# Health check on the primary ALB — drives failover
+# Health check on the primary ALB - drives failover
 # ----------------------------------------------------------
 
 resource "aws_route53_health_check" "primary" {
@@ -119,7 +119,7 @@ resource "aws_route53_record" "admin_internal" {
 }
 
 # ----------------------------------------------------------
-# SES — DKIM CNAMEs + SPF TXT + DMARC TXT + verification TXT
+# SES - DKIM CNAMEs + SPF TXT + DMARC TXT + verification TXT
 # ----------------------------------------------------------
 
 resource "aws_route53_record" "ses_verification" {

@@ -1,5 +1,5 @@
 ############################################################
-# Phase 3 — Compute
+# Phase 3 - Compute
 #   * iam          : GitHub OIDC deploy role
 #   * cognito      : customer + admin pools
 #   * sqs-lambda   : EventBridge + SQS + Lambda + SES
@@ -7,7 +7,7 @@
 ############################################################
 
 # ----------------------------------------------------------
-# IAM — GitHub deploy role (depends on ECR repo ARNs)
+# IAM - GitHub deploy role (depends on ECR repo ARNs)
 # ----------------------------------------------------------
 module "iam" {
   source = "../../modules/iam"
@@ -23,7 +23,7 @@ module "iam" {
 }
 
 # ----------------------------------------------------------
-# Cognito — populates the cognito_config secret once pools exist
+# Cognito - populates the cognito_config secret once pools exist
 # ----------------------------------------------------------
 module "cognito" {
   source = "../../modules/cognito"
@@ -54,7 +54,7 @@ module "sqs_lambda" {
 }
 
 # ----------------------------------------------------------
-# EKS — cluster + IRSA for every service account we need
+# EKS - cluster + IRSA for every service account we need
 # ----------------------------------------------------------
 
 locals {
@@ -66,7 +66,7 @@ locals {
         {
           Effect   = "Allow"
           Action   = ["rds-db:connect"]
-          Resource = "arn:aws:rds-db:${var.primary_region}:${data.aws_caller_identity.current.account_id}:dbuser:${module.rds.cluster_resource_id}/shopcloud_catalog"
+          Resource = "arn:aws:rds-db:${var.primary_region}:${data.aws_caller_identity.current.account_id}:dbuser:${module.rds.db_resource_id}/shopcloud_catalog"
         },
         {
           Effect   = "Allow"
@@ -93,7 +93,7 @@ locals {
         {
           Effect   = "Allow"
           Action   = ["rds-db:connect"]
-          Resource = "arn:aws:rds-db:${var.primary_region}:${data.aws_caller_identity.current.account_id}:dbuser:${module.rds.cluster_resource_id}/shopcloud_checkout"
+          Resource = "arn:aws:rds-db:${var.primary_region}:${data.aws_caller_identity.current.account_id}:dbuser:${module.rds.db_resource_id}/shopcloud_checkout"
         },
         {
           Effect   = "Allow"
@@ -142,7 +142,7 @@ locals {
           Action = [
             "rds-db:connect",
           ]
-          Resource = "arn:aws:rds-db:${var.primary_region}:${data.aws_caller_identity.current.account_id}:dbuser:${module.rds.cluster_resource_id}/shopcloud_admin"
+          Resource = "arn:aws:rds-db:${var.primary_region}:${data.aws_caller_identity.current.account_id}:dbuser:${module.rds.db_resource_id}/shopcloud_admin"
         },
         {
           Effect = "Allow"
@@ -332,10 +332,10 @@ module "eks" {
   public_access_cidrs = var.eks_public_access_cidrs
 
   node_instance_types = var.eks_node_instance_types
-  node_capacity_type  = "SPOT"
-  node_desired_size   = 2
-  node_min_size       = 2
-  node_max_size       = 4
+  node_capacity_type  = var.eks_node_capacity_type
+  node_desired_size   = var.eks_node_desired_size
+  node_min_size       = var.eks_node_min_size
+  node_max_size       = var.eks_node_max_size
 
   kms_key_arn = module.secrets.kms_key_arn
 

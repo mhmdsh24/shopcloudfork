@@ -1,5 +1,5 @@
 ############################################################
-# Lambda invoice generator — inline zipped Python handler.
+# Lambda invoice generator - inline zipped Python handler.
 #   * reads SQS messages (5 at a time)
 #   * builds a PDF with reportlab
 #   * writes it to S3
@@ -143,7 +143,7 @@ resource "aws_lambda_event_source_mapping" "sqs" {
 }
 
 # ----------------------------------------------------------
-# SES — domain identity (requires manual DNS record creation
+# SES - domain identity (requires manual DNS record creation
 # outside this module).
 # ----------------------------------------------------------
 

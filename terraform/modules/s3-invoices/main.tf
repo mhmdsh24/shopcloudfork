@@ -1,5 +1,5 @@
 ############################################################
-# Invoice bucket — SSE-S3, block-public, versioned (required
+# Invoice bucket - SSE-S3, block-public, versioned (required
 # for replication), TLS-only policy, lifecycle expiry.
 # Cross-region replication is optional.
 ############################################################

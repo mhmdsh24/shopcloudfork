@@ -1,5 +1,5 @@
 ############################################################
-# Phase 6 — Observability
+# Phase 6 - Observability
 ############################################################
 
 module "monitoring" {
@@ -9,7 +9,7 @@ module "monitoring" {
   alert_email    = var.alert_email
   primary_region = var.primary_region
 
-  aurora_cluster_id       = module.rds.cluster_id
+  db_instance_id          = module.rds.db_instance_id
   sqs_queue_name          = element(split("/", module.sqs_lambda.invoice_queue_arn), 5)
   sqs_dlq_name            = "${local.name_prefix}-invoice-dlq"
   lambda_function_name    = module.sqs_lambda.lambda_function_name

@@ -1,5 +1,5 @@
 ############################################################
-# AWS Client VPN endpoint — mutual TLS auth, split tunnel,
+# AWS Client VPN endpoint - mutual TLS auth, split tunnel,
 # single subnet association to keep costs down.
 ############################################################
 

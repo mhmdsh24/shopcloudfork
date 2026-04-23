@@ -1,5 +1,5 @@
 ############################################################
-# Networking module — inputs
+# Networking module - inputs
 ############################################################
 
 variable "name_prefix" {
@@ -17,7 +17,7 @@ variable "availability_zones" {
   type        = list(string)
   validation {
     condition     = length(var.availability_zones) == 2
-    error_message = "Provide exactly two AZs — the cost-optimized design uses 2 AZs."
+    error_message = "Provide exactly two AZs - the cost-optimized design uses 2 AZs."
   }
 }
 
@@ -54,7 +54,7 @@ variable "flow_logs_retention_days" {
 }
 
 variable "enable_interface_endpoints" {
-  description = "Whether to create the (paid) interface VPC endpoints for ECR/STS. Start disabled — NAT handles it."
+  description = "Whether to create the (paid) interface VPC endpoints for ECR/STS. Start disabled - NAT handles it."
   type        = bool
   default     = false
 }

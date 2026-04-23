@@ -1,5 +1,5 @@
 ############################################################
-# ECS Fargate — 5 services, desired_count = 0 by default.
+# ECS Fargate - 5 services, desired_count = 0 by default.
 # Auto-scaling is wired so they can scale 0 -> N on failover.
 ############################################################
 
@@ -42,7 +42,7 @@ resource "aws_cloudwatch_log_group" "ecs" {
 }
 
 # ----------------------------------------------------------
-# Execution role — pulls images and writes logs
+# Execution role - pulls images and writes logs
 # ----------------------------------------------------------
 
 data "aws_iam_policy_document" "ecs_assume" {
@@ -88,7 +88,7 @@ resource "aws_iam_role_policy" "execution_secrets" {
 }
 
 # ----------------------------------------------------------
-# Task role — per service (minimal). For this DR deploy we use a
+# Task role - per service (minimal). For this DR deploy we use a
 # shared task role; tighten per service later.
 # ----------------------------------------------------------
 
@@ -238,7 +238,7 @@ resource "aws_ecs_task_definition" "svc" {
 }
 
 # ----------------------------------------------------------
-# Services — desired_count = 0 by default (scales from zero)
+# Services - desired_count = 0 by default (scales from zero)
 # ----------------------------------------------------------
 
 resource "aws_ecs_service" "svc" {

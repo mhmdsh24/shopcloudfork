@@ -41,7 +41,7 @@ data "terraform_remote_state" "dr" {
 }
 
 ############################################################
-# Phase 1 — Cross-region VPC peering (primary <-> DR)
+# Phase 1 - Cross-region VPC peering (primary <-> DR)
 ############################################################
 
 module "peering" {

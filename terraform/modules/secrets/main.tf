@@ -1,10 +1,10 @@
 ############################################################
-# secrets module — KMS (optional) + Secrets Manager + SSM
+# secrets module - KMS (optional) + Secrets Manager + SSM
 #
 # Creates the three canonical secrets defined in the spec:
-#   shopcloud/db/master      — Postgres connection info
-#   shopcloud/redis/auth     — Redis endpoint + auth token
-#   shopcloud/cognito/config — both user pool IDs + client IDs
+#   shopcloud/db/master      - Postgres connection info
+#   shopcloud/redis/auth     - Redis endpoint + auth token
+#   shopcloud/cognito/config - both user pool IDs + client IDs
 #
 # Secret *values* are populated as placeholders here and later
 # overwritten by the rds/elasticache/cognito modules with
@@ -23,7 +23,7 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 # ----------------------------------------------------------
-# KMS customer-managed key (optional — $1/mo)
+# KMS customer-managed key (optional - $1/mo)
 # ----------------------------------------------------------
 
 data "aws_iam_policy_document" "kms" {
@@ -201,7 +201,7 @@ resource "aws_secretsmanager_secret_version" "cognito_config_initial" {
 }
 
 # ----------------------------------------------------------
-# SSM Parameter Store — non-sensitive config (free, String type)
+# SSM Parameter Store - non-sensitive config (free, String type)
 # ----------------------------------------------------------
 
 resource "aws_ssm_parameter" "environment" {

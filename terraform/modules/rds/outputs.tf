@@ -1,33 +1,39 @@
-output "cluster_id" {
-  value = aws_rds_cluster.this.id
+output "db_instance_id" {
+  description = "DB instance identifier."
+  value       = aws_db_instance.this.id
 }
 
-output "cluster_arn" {
-  value = aws_rds_cluster.this.arn
+output "db_instance_arn" {
+  description = "Full ARN of the DB instance. Pass to a replica in the DR region as source_db_arn."
+  value       = aws_db_instance.this.arn
 }
 
-output "cluster_resource_id" {
-  description = "Cluster resource ID — used for IAM DB auth."
-  value       = aws_rds_cluster.this.cluster_resource_id
+output "db_resource_id" {
+  description = "DBI resource ID (dbi-XXXXXXXXXXX). Use for IAM DB auth ARN construction."
+  value       = aws_db_instance.this.resource_id
 }
 
 output "endpoint" {
-  value = aws_rds_cluster.this.endpoint
+  description = "DB endpoint in host:port form."
+  value       = aws_db_instance.this.endpoint
 }
 
-output "reader_endpoint" {
-  value = aws_rds_cluster.this.reader_endpoint
+output "address" {
+  description = "DB host only (no port)."
+  value       = aws_db_instance.this.address
 }
 
 output "port" {
-  value = aws_rds_cluster.this.port
+  description = "DB port."
+  value       = aws_db_instance.this.port
 }
 
-output "global_cluster_id" {
-  description = "Global cluster ID (populated only on primary when global_cluster_id is set)."
-  value       = local.creates_global_cluster ? aws_rds_global_cluster.this[0].id : null
+output "database_name" {
+  description = "Initial database name. Null on replica."
+  value       = aws_db_instance.this.db_name
 }
 
-output "global_cluster_arn" {
-  value = local.creates_global_cluster ? aws_rds_global_cluster.this[0].arn : null
+output "parameter_group_name" {
+  description = "Parameter group attached to the writer. Null on replica."
+  value       = one(aws_db_parameter_group.this[*].name)
 }

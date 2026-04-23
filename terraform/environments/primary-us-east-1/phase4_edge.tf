@@ -1,22 +1,22 @@
 ############################################################
-# Phase 4 — Edge & Access
+# Phase 4 - Edge & Access
 #
 # Every resource below is gated by `var.enable_domain`. Set it
-# to `false` (the default) while you don't own a real domain —
+# to `false` (the default) while you don't own a real domain -
 # Terraform will then skip:
 #
 #   * the Route 53 public + private hosted zones and all records
 #   * the two regional ACM certs (public ALB + internal ALB)
 #   * CloudFront custom domain + its ACM cert (via enable_cloudfront)
 #
-# Pods still serve traffic — the AWS Load Balancer Controller
+# Pods still serve traffic - the AWS Load Balancer Controller
 # will create ALBs with the default `*.us-east-1.elb.amazonaws.com`
 # hostnames over plain HTTP. Flip `enable_domain = true` once
 # you own a domain and delegate its NS to Route 53.
 ############################################################
 
 ############################################################
-# Regional ACM certs — one for the public ALB, one for the
+# Regional ACM certs - one for the public ALB, one for the
 # internal ALB. The AWS Load Balancer Controller picks them up
 # via the `alb.ingress.kubernetes.io/certificate-arn` annotation
 # (read from Terraform output after apply).
@@ -45,7 +45,7 @@ module "acm_internal_alb" {
 }
 
 ############################################################
-# Route 53 — public zone, private zone, failover records,
+# Route 53 - public zone, private zone, failover records,
 # SES DKIM/SPF/DMARC. All of this depends on owning the
 # domain (validation records need to resolve on the open
 # internet), so it's gated behind the same flag.
@@ -77,7 +77,7 @@ module "dns" {
 }
 
 # ----------------------------------------------------------
-# CloudFront + WAF — optional, AND requires enable_domain=true
+# CloudFront + WAF - optional, AND requires enable_domain=true
 # because the custom alias + ACM cert both depend on a real
 # public zone. WAF itself doesn't need a domain; if you want
 # WAF without the domain stack, flip the count on just the
@@ -102,7 +102,7 @@ module "cdn_waf" {
 }
 
 # ----------------------------------------------------------
-# Client VPN — independent of the domain toggle; gated by its
+# Client VPN - independent of the domain toggle; gated by its
 # own `enable_vpn` flag.
 # ----------------------------------------------------------
 

@@ -17,7 +17,7 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 # ----------------------------------------------------------
-# Custom EventBridge bus — decouples checkout from SQS
+# Custom EventBridge bus - decouples checkout from SQS
 # ----------------------------------------------------------
 
 resource "aws_cloudwatch_event_bus" "shopcloud" {
@@ -26,7 +26,7 @@ resource "aws_cloudwatch_event_bus" "shopcloud" {
 }
 
 # ----------------------------------------------------------
-# SQS — main queue + DLQ + EventBridge delivery DLQ
+# SQS - main queue + DLQ + EventBridge delivery DLQ
 # ----------------------------------------------------------
 
 resource "aws_sqs_queue" "invoice_dlq" {

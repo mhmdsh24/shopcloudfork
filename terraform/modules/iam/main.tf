@@ -1,7 +1,7 @@
 ############################################################
-# IAM — GitHub Actions OIDC deploy role
+# IAM - GitHub Actions OIDC deploy role
 # IRSA roles are attached by the eks module (needs the EKS
-# OIDC issuer URL) — this module only sets up cross-cutting
+# OIDC issuer URL) - this module only sets up cross-cutting
 # identities that don't depend on EKS.
 ############################################################
 
@@ -25,7 +25,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 }
 
 # ----------------------------------------------------------
-# Deploy role — assumed by GitHub Actions for this repo
+# Deploy role - assumed by GitHub Actions for this repo
 # ----------------------------------------------------------
 
 data "aws_iam_policy_document" "github_assume" {

@@ -1,5 +1,5 @@
 ############################################################
-# Primary environment (us-east-1) — inputs
+# Primary environment (us-east-1) - inputs
 ############################################################
 
 variable "project_name" {
@@ -69,7 +69,7 @@ variable "enable_interface_endpoints" {
 }
 
 ############################################################
-# Phase 2 — Data layer
+# Phase 2 - Data layer
 ############################################################
 
 variable "dr_region" {
@@ -78,16 +78,52 @@ variable "dr_region" {
   default     = "eu-west-1"
 }
 
-variable "aurora_engine_version" {
-  description = "Aurora PostgreSQL engine version."
+variable "postgres_engine_version" {
+  description = "PostgreSQL engine version."
   type        = string
-  default     = "15.4"
+  default     = "15.7"
 }
 
-variable "aurora_instance_class" {
-  description = "Aurora cluster instance class."
+variable "postgres_parameter_group_family" {
+  description = "DB parameter group family. Must match engine_version major."
   type        = string
-  default     = "db.t4g.medium"
+  default     = "postgres15"
+}
+
+variable "postgres_instance_class" {
+  description = "RDS instance class. db.t3.micro = Free Tier eligible."
+  type        = string
+  default     = "db.t3.micro"
+}
+
+variable "postgres_allocated_storage_gb" {
+  description = "Allocated storage in GB. 20 GB is Free Tier eligible."
+  type        = number
+  default     = 20
+}
+
+variable "postgres_storage_type" {
+  description = "Storage type. gp2 is Free Tier eligible."
+  type        = string
+  default     = "gp2"
+}
+
+variable "postgres_multi_az" {
+  description = "Enable Multi-AZ standby. Not Free Tier eligible (doubles hourly cost)."
+  type        = bool
+  default     = false
+}
+
+variable "postgres_backup_retention_days" {
+  description = "Backup retention in days. Free-plan accounts may cap this at 1."
+  type        = number
+  default     = 7
+}
+
+variable "enable_cross_region_replica" {
+  description = "Mark this RDS as the source for a cross-region read replica in the DR region. Flips role from standalone to primary. The replica itself is created by the DR environment."
+  type        = bool
+  default     = false
 }
 
 variable "redis_node_type" {
@@ -103,7 +139,7 @@ variable "dr_invoice_bucket_arn" {
 }
 
 ############################################################
-# Phase 3 — Compute
+# Phase 3 - Compute
 ############################################################
 
 variable "github_org" {
@@ -131,9 +167,31 @@ variable "eks_public_access_cidrs" {
 }
 
 variable "eks_node_instance_types" {
-  description = "Instance types for the EKS spot node group."
+  description = "Instance types for the EKS node group. Defaults are free-tier eligible. Expand later to t3.medium/t3a.medium on an upgraded account."
   type        = list(string)
-  default     = ["t3.medium", "t3a.medium"]
+  default     = ["t3.micro"]
+}
+
+variable "eks_node_capacity_type" {
+  description = "SPOT or ON_DEMAND. Free-plan accounts reject Spot on non-free-tier types, so use ON_DEMAND with t3.micro."
+  type        = string
+  default     = "ON_DEMAND"
+}
+
+variable "eks_node_desired_size" {
+  description = "Desired EKS worker count. Keep at 1 on t3.micro (~1 GB RAM total)."
+  type        = number
+  default     = 1
+}
+
+variable "eks_node_min_size" {
+  type    = number
+  default = 1
+}
+
+variable "eks_node_max_size" {
+  type    = number
+  default = 2
 }
 
 variable "domain_name" {
@@ -143,7 +201,7 @@ variable "domain_name" {
 }
 
 ############################################################
-# Phase 4 — Edge & Access
+# Phase 4 - Edge & Access
 ############################################################
 
 variable "enable_domain" {
@@ -213,7 +271,7 @@ variable "vpn_client_root_certificate_arn" {
 }
 
 ############################################################
-# Phase 6 — Monitoring
+# Phase 6 - Monitoring
 ############################################################
 
 variable "alert_email" {

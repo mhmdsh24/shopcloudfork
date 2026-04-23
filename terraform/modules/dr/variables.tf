@@ -24,7 +24,7 @@ variable "public_alb_sg_id" {
 }
 
 variable "eks_nodes_sg_id" {
-  description = "Reused as 'ECS task SG' in DR — allows traffic from the DR ALB."
+  description = "Reused as 'ECS task SG' in DR - allows traffic from the DR ALB."
   type        = string
 }
 

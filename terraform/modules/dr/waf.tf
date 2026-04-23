@@ -4,7 +4,7 @@
 
 resource "aws_wafv2_web_acl" "alb" {
   name        = "${var.name_prefix}-alb-waf"
-  description = "WAF for DR ALB — core + SQLi + bad inputs + rate limit"
+  description = "WAF for DR ALB - core + SQLi + bad inputs + rate limit"
   scope       = "REGIONAL"
 
   default_action {

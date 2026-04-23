@@ -1,7 +1,7 @@
 ############################################################
 # VPC Endpoints
-#   - Gateway endpoints (S3, DynamoDB) are FREE — always on.
-#   - Interface endpoints (ECR, STS) are ~$7.50/mo each — opt-in.
+#   - Gateway endpoints (S3, DynamoDB) are FREE - always on.
+#   - Interface endpoints (ECR, STS) are ~$7.50/mo each - opt-in.
 ############################################################
 
 # ---------- Gateway endpoints (free) ----------

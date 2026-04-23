@@ -1,5 +1,5 @@
 ############################################################
-# ACM — regional cert with Route 53 DNS-01 validation.
+# ACM - regional cert with Route 53 DNS-01 validation.
 # Runs in whatever region the calling provider points at, so
 # this works for both us-east-1 (CloudFront/regional) and any
 # other region (DR ALB, internal ALB, etc.).

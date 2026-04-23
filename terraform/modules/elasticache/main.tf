@@ -1,5 +1,5 @@
 ############################################################
-# ElastiCache for Redis — session + shopping cart store.
+# ElastiCache for Redis - session + shopping cart store.
 # Starts as a single-node cluster on cache.t4g.micro (free tier).
 # Flip num_cache_clusters to 2+ to get automatic failover and
 # Multi-AZ at any time without code changes.
@@ -20,7 +20,7 @@ resource "aws_elasticache_subnet_group" "this" {
 resource "aws_elasticache_parameter_group" "this" {
   name        = "${var.name_prefix}-redis"
   family      = "redis7"
-  description = "${var.name_prefix} Redis params — LRU eviction for cache-only workloads"
+  description = "${var.name_prefix} Redis params - LRU eviction for cache-only workloads"
 
   parameter {
     name  = "maxmemory-policy"

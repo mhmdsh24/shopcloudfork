@@ -1,5 +1,5 @@
 variable "repositories" {
-  description = "Repository short names — final name becomes shopcloud/<name>."
+  description = "Repository short names - final name becomes shopcloud/<name>."
   type        = list(string)
   default     = ["catalog", "cart", "checkout", "auth", "admin", "invoice-generator", "frontend"]
 }

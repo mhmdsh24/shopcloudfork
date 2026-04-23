@@ -1,5 +1,5 @@
 ############################################################
-# Outputs — consumed by other environments (DR, global)
+# Outputs - consumed by other environments (DR, global)
 # via terraform_remote_state.
 ############################################################
 
@@ -55,7 +55,7 @@ output "availability_zones" {
   value = module.networking.availability_zones
 }
 
-# ---------- Phase 2 — Data layer ----------
+# ---------- Phase 2 - Data layer ----------
 
 output "kms_key_arn" {
   value = module.secrets.kms_key_arn
@@ -77,24 +77,33 @@ output "ecr_repository_urls" {
   value = module.ecr.repository_urls
 }
 
-output "aurora_endpoint" {
-  value = module.rds.endpoint
+output "postgres_endpoint" {
+  description = "RDS PostgreSQL endpoint in host:port form."
+  value       = module.rds.endpoint
 }
 
-output "aurora_reader_endpoint" {
-  value = module.rds.reader_endpoint
+output "postgres_address" {
+  description = "RDS PostgreSQL hostname only."
+  value       = module.rds.address
 }
 
-output "aurora_global_cluster_id" {
-  value = module.rds.global_cluster_id
+output "postgres_port" {
+  value = module.rds.port
 }
 
-output "aurora_global_cluster_arn" {
-  value = module.rds.global_cluster_arn
+output "postgres_db_instance_id" {
+  description = "RDS DB instance identifier."
+  value       = module.rds.db_instance_id
 }
 
-output "aurora_cluster_arn" {
-  value = module.rds.cluster_arn
+output "postgres_db_instance_arn" {
+  description = "RDS DB instance ARN. Feed this into the DR region as source_db_arn to build a cross-region read replica."
+  value       = module.rds.db_instance_arn
+}
+
+output "postgres_db_resource_id" {
+  description = "DBI resource ID (dbi-...). Use when constructing IAM DB-auth ARNs."
+  value       = module.rds.db_resource_id
 }
 
 output "redis_primary_endpoint" {
@@ -109,7 +118,7 @@ output "invoices_bucket_id" {
   value = module.s3_invoices.bucket_id
 }
 
-# ---------- Phase 3 — Compute ----------
+# ---------- Phase 3 - Compute ----------
 
 output "github_deploy_role_arn" {
   value = module.iam.github_deploy_role_arn
@@ -173,7 +182,7 @@ output "eks_irsa_role_arns" {
   value = module.eks.irsa_role_arns
 }
 
-# ---------- Phase 4 — Edge & Access ----------
+# ---------- Phase 4 - Edge & Access ----------
 # Every output below is nullable: `null` when enable_domain = false.
 
 output "public_zone_id" {
@@ -223,7 +232,7 @@ output "vpn_dns_name" {
   value = try(module.vpn[0].dns_name, null)
 }
 
-# ---------- Phase 6 — Monitoring ----------
+# ---------- Phase 6 - Monitoring ----------
 
 output "alerts_sns_topic_arn" {
   value = module.monitoring.sns_topic_arn

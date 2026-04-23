@@ -16,7 +16,7 @@ variable "github_repo" {
 }
 
 variable "terraform_state_bucket" {
-  description = "S3 bucket holding Terraform state — deploy role needs read/write here."
+  description = "S3 bucket holding Terraform state - deploy role needs read/write here."
   type        = string
 }
 

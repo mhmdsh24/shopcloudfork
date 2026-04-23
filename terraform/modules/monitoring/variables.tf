@@ -9,8 +9,8 @@ variable "alert_email" {
   default     = ""
 }
 
-variable "aurora_cluster_id" {
-  description = "Aurora cluster ID to monitor."
+variable "db_instance_id" {
+  description = "RDS DB instance identifier to monitor (CloudWatch `DBInstanceIdentifier` dimension)."
   type        = string
   default     = ""
 }

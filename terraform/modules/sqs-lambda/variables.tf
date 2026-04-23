@@ -26,9 +26,9 @@ variable "ses_from_address" {
 }
 
 variable "lambda_reserved_concurrency" {
-  description = "Reserved concurrency for the invoice generator."
+  description = "Reserved concurrency for the invoice generator. -1 = no reservation (use the account's unreserved pool). New AWS accounts have a 10-concurrency quota and will reject any positive reservation because it would drop unreserved capacity below the 10-unit floor."
   type        = number
-  default     = 10
+  default     = -1
 }
 
 variable "lambda_memory_mb" {
@@ -44,7 +44,7 @@ variable "lambda_timeout_seconds" {
 }
 
 variable "sqs_visibility_timeout" {
-  description = "SQS visibility timeout — must be > lambda timeout."
+  description = "SQS visibility timeout - must be > lambda timeout."
   type        = number
   default     = 300
 }

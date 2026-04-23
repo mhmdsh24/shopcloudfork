@@ -1,8 +1,8 @@
 ############################################################
-# Phase 2 — Data layer (primary region)
+# Phase 2 - Data layer (primary region)
 #   * secrets     : KMS + Secrets Manager + SSM
 #   * ecr         : 6 image repos + cross-region replication
-#   * rds         : Aurora PostgreSQL (primary of Global Database)
+#   * rds         : RDS PostgreSQL (source of cross-region replica)
 #   * elasticache : Redis primary
 #   * s3_invoices : Invoice bucket + CRR to DR
 ############################################################
@@ -21,7 +21,7 @@ module "secrets" {
 }
 
 # ----------------------------------------------------------
-# ECR — 6 repos, replicated to DR region
+# ECR - 6 repos, replicated to DR region
 # ----------------------------------------------------------
 module "ecr" {
   source = "../../modules/ecr"
@@ -31,18 +31,23 @@ module "ecr" {
 }
 
 # ----------------------------------------------------------
-# Aurora PostgreSQL — primary of a Global Database
+# RDS PostgreSQL - spec Option A (free tier).
+# Role = primary  when a cross-region replica is expected in DR.
+# Role = standalone otherwise (no DR DB).
+# Multi-AZ is a toggle; OFF by default because the standby
+# doubles the hourly cost and is not Free Tier eligible.
 # ----------------------------------------------------------
 module "rds" {
   source = "../../modules/rds"
 
-  name_prefix       = local.name_prefix
-  role              = "primary"
-  global_cluster_id = "${var.project_name}-global-db"
+  name_prefix = local.name_prefix
+  role        = var.enable_cross_region_replica ? "primary" : "standalone"
 
-  engine_version = var.aurora_engine_version
-  instance_class = var.aurora_instance_class
-  instance_count = 1
+  engine_version         = var.postgres_engine_version
+  parameter_group_family = var.postgres_parameter_group_family
+  instance_class         = var.postgres_instance_class
+  allocated_storage_gb   = var.postgres_allocated_storage_gb
+  storage_type           = var.postgres_storage_type
 
   database_name   = "shopcloud"
   master_username = "shopcloud_admin"
@@ -54,6 +59,9 @@ module "rds" {
   kms_key_id   = module.secrets.kms_key_arn
   db_secret_id = module.secrets.db_secret_arn
 
+  multi_az              = var.postgres_multi_az
+  backup_retention_days = var.postgres_backup_retention_days
+
   deletion_protection = false
   skip_final_snapshot = true
 
@@ -61,7 +69,7 @@ module "rds" {
 }
 
 # ----------------------------------------------------------
-# ElastiCache Redis — primary
+# ElastiCache Redis - primary
 # ----------------------------------------------------------
 module "redis" {
   source = "../../modules/elasticache"
@@ -81,7 +89,7 @@ module "redis" {
 }
 
 # ----------------------------------------------------------
-# S3 invoices — primary bucket, replicated to DR bucket.
+# S3 invoices - primary bucket, replicated to DR bucket.
 # The DR bucket is created in the dr environment and its ARN
 # is injected via var.dr_invoice_bucket_arn (left empty until
 # Phase 2 is applied in DR, at which point you set it and

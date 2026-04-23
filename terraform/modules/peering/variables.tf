@@ -1,5 +1,5 @@
 ############################################################
-# Cross-region VPC peering — inputs
+# Cross-region VPC peering - inputs
 ############################################################
 
 variable "name" {

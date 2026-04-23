@@ -1,13 +1,15 @@
 ############################################################
-# Phase 2 — Data layer (DR region)
+# Phase 2 - Data layer (DR region)
 #
 # Reads the primary region's outputs via remote state so it
-# can:
-#   * join the primary's Aurora Global Database as a secondary
-#   * create the S3 invoice-replica bucket (destination for CRR)
+# can build:
+#   * an optional cross-region RDS read replica of the
+#     primary PostgreSQL instance (spec §11 Option A)
+#   * a standalone ElastiCache Redis node (warm on failover)
+#   * the S3 invoice-replica bucket (destination for CRR)
 #
 # Secrets Manager replicas are created automatically by the
-# primary via the replica_region argument — nothing to do here.
+# primary via the replica_region argument - nothing to do here.
 ############################################################
 
 data "terraform_remote_state" "primary" {
@@ -20,39 +22,46 @@ data "terraform_remote_state" "primary" {
 }
 
 # ----------------------------------------------------------
-# Aurora secondary — joins the primary's Global Database
+# Cross-region RDS read replica.
+#
+# Gated behind enable_dr_replica so this env can be applied
+# standalone before the primary is ready. Flip to true only
+# after the primary was applied with
+# `enable_cross_region_replica = true`.
 # ----------------------------------------------------------
 module "rds_dr" {
+  count  = var.enable_dr_replica ? 1 : 0
   source = "../../modules/rds"
 
   name_prefix = local.name_prefix
-  role        = "secondary"
+  role        = "replica"
 
-  # Secondary joins the Global Database created by primary.
-  # AWS handles cross-region replication automatically.
-  global_cluster_id = data.terraform_remote_state.primary.outputs.aurora_global_cluster_id
+  # Engine / credentials / parameter group are inherited from
+  # the source DB, so we pass only the replica-specific wiring.
+  source_db_arn = data.terraform_remote_state.primary.outputs.postgres_db_instance_arn
 
-  engine_version = var.aurora_engine_version
-  instance_class = var.aurora_instance_class
-  instance_count = 1
+  instance_class = var.postgres_instance_class
+  multi_az       = var.postgres_multi_az
 
   subnet_ids             = module.networking.private_data_subnet_ids
   vpc_security_group_ids = [module.networking.security_group_ids.rds]
 
-  deletion_protection = false
-  skip_final_snapshot = true
+  # Replicas cannot hold backups or own the DB secret.
+  backup_retention_days = 0
+  deletion_protection   = false
+  skip_final_snapshot   = true
 
   tags = local.common_tags
 }
 
 # ----------------------------------------------------------
-# ElastiCache Redis — standalone DR node.
+# ElastiCache Redis - standalone DR node.
 #
 # Global Datastore requires r-family nodes (cache.r6g.large
-# minimum), which is ~$130/mo. The spec calls this out and
-# recommends the fallback: a standalone cache in eu-west-1
-# that starts empty and warms up post-failover. Cart/session
-# data loss on failover is acceptable — users re-add items.
+# minimum, ~$130/mo), so we use the spec's documented
+# fallback: a standalone cache that starts empty and warms
+# up post-failover. Cart/session data loss on failover is
+# acceptable - users re-add items.
 # ----------------------------------------------------------
 module "redis_dr" {
   source = "../../modules/elasticache"
@@ -64,12 +73,13 @@ module "redis_dr" {
   subnet_ids         = module.networking.private_data_subnet_ids
   security_group_ids = [module.networking.security_group_ids.redis]
 
-  # DR node gets its own bootstrap auth token. Real applications
-  # can read the primary's secret (replicated) to sync post-failover.
+  # DR node gets its own bootstrap auth token. Applications
+  # can read the primary's (replicated) secret to sync post-
+  # failover.
   auth_token = random_password.redis_dr_auth.result
 
-  # Primary region owns the shopcloud/redis/auth secret (replicated to DR).
-  # Don't overwrite it from here.
+  # Primary region owns the shopcloud/redis/auth secret
+  # (replicated to DR). Don't overwrite it from here.
   populate_secret = false
 
   tags = local.common_tags
@@ -81,7 +91,7 @@ resource "random_password" "redis_dr_auth" {
 }
 
 # ----------------------------------------------------------
-# S3 invoice replica bucket — destination of CRR from primary
+# S3 invoice replica bucket - destination of CRR from primary
 # ----------------------------------------------------------
 module "s3_invoices_replica" {
   source = "../../modules/s3-invoices"

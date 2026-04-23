@@ -1,5 +1,5 @@
 ############################################################
-# Monitoring — SNS alerts + critical CloudWatch alarms.
+# Monitoring - SNS alerts + critical CloudWatch alarms.
 ############################################################
 
 locals {
@@ -33,7 +33,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
   count = var.enable_rds_alarms ? 1 : 0
 
   alarm_name          = "${var.name_prefix}-rds-cpu-high"
-  alarm_description   = "Aurora CPU > 80% for 10 minutes"
+  alarm_description   = "RDS CPU > 80% for 10 minutes"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   datapoints_to_alarm = 2
@@ -44,7 +44,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
   metric_name         = "CPUUtilization"
 
   dimensions = {
-    DBClusterIdentifier = var.aurora_cluster_id
+    DBInstanceIdentifier = var.db_instance_id
   }
 
   alarm_actions = [aws_sns_topic.alerts.arn]
@@ -56,17 +56,17 @@ resource "aws_cloudwatch_metric_alarm" "rds_storage" {
   count = var.enable_rds_alarms ? 1 : 0
 
   alarm_name          = "${var.name_prefix}-rds-free-storage-low"
-  alarm_description   = "Aurora free storage < 2 GB"
+  alarm_description   = "RDS free storage < 2 GB"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 1
   threshold           = 2 * 1024 * 1024 * 1024 # 2 GB in bytes
   period              = 300
   statistic           = "Minimum"
   namespace           = "AWS/RDS"
-  metric_name         = "FreeLocalStorage"
+  metric_name         = "FreeStorageSpace"
 
   dimensions = {
-    DBClusterIdentifier = var.aurora_cluster_id
+    DBInstanceIdentifier = var.db_instance_id
   }
 
   alarm_actions = [aws_sns_topic.alerts.arn]
@@ -139,7 +139,7 @@ resource "aws_cloudwatch_metric_alarm" "route53_health" {
 }
 
 # ----------------------------------------------------------
-# CloudTrail — single multi-region trail, management events only
+# CloudTrail - single multi-region trail, management events only
 # ----------------------------------------------------------
 
 data "aws_iam_policy_document" "cloudtrail_bucket" {

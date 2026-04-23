@@ -59,14 +59,14 @@ resource "aws_acm_certificate_validation" "cloudfront" {
 }
 
 # ----------------------------------------------------------
-# WAF v2 — CLOUDFRONT scope, must live in us-east-1
+# WAF v2 - CLOUDFRONT scope, must live in us-east-1
 # ----------------------------------------------------------
 
 resource "aws_wafv2_web_acl" "cloudfront" {
   provider = aws.us_east_1
 
   name        = "${var.name_prefix}-cf-waf"
-  description = "ShopCloud WAF for CloudFront — core rules + rate limit"
+  description = "ShopCloud WAF for CloudFront - core rules + rate limit"
   scope       = "CLOUDFRONT"
 
   default_action {

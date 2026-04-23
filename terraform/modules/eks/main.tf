@@ -1,5 +1,5 @@
 ############################################################
-# EKS module — cluster + spot node group + OIDC + addons.
+# EKS module - cluster + spot node group + OIDC + addons.
 ############################################################
 
 locals {
@@ -143,7 +143,7 @@ resource "aws_iam_role_policy_attachment" "node_ssm" {
 }
 
 # ----------------------------------------------------------
-# Launch template — IMDSv2 enforced
+# Launch template - IMDSv2 enforced
 # ----------------------------------------------------------
 
 resource "aws_launch_template" "nodes" {
@@ -307,7 +307,7 @@ resource "aws_eks_addon" "kube_proxy" {
 }
 
 # ----------------------------------------------------------
-# IRSA — one IAM role per service account entry
+# IRSA - one IAM role per service account entry
 # ----------------------------------------------------------
 
 locals {

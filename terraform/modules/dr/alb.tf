@@ -1,5 +1,5 @@
 ############################################################
-# DR public ALB — pre-provisioned so Route 53 failover records
+# DR public ALB - pre-provisioned so Route 53 failover records
 # always have a target, even while ECS services are at 0 tasks.
 ############################################################
 
@@ -33,7 +33,7 @@ resource "aws_lb_listener" "http_redirect" {
   }
 }
 
-# HTTPS listener that returns 503 by default — real rules are
+# HTTPS listener that returns 503 by default - real rules are
 # added per service below.
 resource "aws_lb_listener" "https" {
   count = var.enable_https_listener ? 1 : 0

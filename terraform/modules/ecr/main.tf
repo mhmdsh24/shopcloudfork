@@ -1,5 +1,5 @@
 ############################################################
-# ECR module — one repo per service + optional cross-region
+# ECR module - one repo per service + optional cross-region
 # image replication.
 ############################################################
 
@@ -35,7 +35,7 @@ resource "aws_ecr_repository" "this" {
 }
 
 # ----------------------------------------------------------
-# Lifecycle policies — keep last N tagged, expire untagged
+# Lifecycle policies - keep last N tagged, expire untagged
 # ----------------------------------------------------------
 
 resource "aws_ecr_lifecycle_policy" "this" {

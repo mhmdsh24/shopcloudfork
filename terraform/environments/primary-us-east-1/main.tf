@@ -1,9 +1,9 @@
 ############################################################
-# Primary environment — us-east-1
+# Primary environment - us-east-1
 #
 # Phase 1: Networking only.
 # Subsequent phases will extend this file with ECR, RDS,
-# ElastiCache, EKS, ALBs, Cognito, etc. — all consuming
+# ElastiCache, EKS, ALBs, Cognito, etc. - all consuming
 # the outputs of module.networking.
 ############################################################
 
@@ -22,7 +22,7 @@ locals {
 data "aws_caller_identity" "current" {}
 
 ############################################################
-# Phase 1 — Networking
+# Phase 1 - Networking
 ############################################################
 
 module "networking" {

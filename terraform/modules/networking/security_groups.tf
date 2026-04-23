@@ -1,18 +1,18 @@
 ############################################################
 # Security Groups
-#   sg-public-alb    — public internet-facing ALB
-#   sg-internal-alb  — admin ALB, only reachable from VPN
-#   sg-eks-nodes     — EKS worker nodes
-#   sg-rds           — PostgreSQL, only from EKS nodes
-#   sg-redis         — ElastiCache Redis, only from EKS nodes
-#   sg-vpn           — Client VPN endpoint
-#   sg-lambda        — Lambda in VPC (egress only, used by invoice pipeline if needed)
+#   sg-public-alb    - public internet-facing ALB
+#   sg-internal-alb  - admin ALB, only reachable from VPN
+#   sg-eks-nodes     - EKS worker nodes
+#   sg-rds           - PostgreSQL, only from EKS nodes
+#   sg-redis         - ElastiCache Redis, only from EKS nodes
+#   sg-vpn           - Client VPN endpoint
+#   sg-lambda        - Lambda in VPC (egress only, used by invoice pipeline if needed)
 ############################################################
 
 # -------- Public ALB --------
 resource "aws_security_group" "public_alb" {
   name        = "${var.name_prefix}-sg-public-alb"
-  description = "Public ALB — 443 from anywhere"
+  description = "Public ALB - 443 from anywhere"
   vpc_id      = aws_vpc.this.id
 
   tags = merge(local.tags, { Name = "${var.name_prefix}-sg-public-alb" })
@@ -46,7 +46,7 @@ resource "aws_vpc_security_group_egress_rule" "public_alb_egress" {
 # -------- Internal ALB --------
 resource "aws_security_group" "internal_alb" {
   name        = "${var.name_prefix}-sg-internal-alb"
-  description = "Internal ALB — 443 only from VPN client CIDR"
+  description = "Internal ALB - 443 only from VPN client CIDR"
   vpc_id      = aws_vpc.this.id
 
   tags = merge(local.tags, { Name = "${var.name_prefix}-sg-internal-alb" })
@@ -108,7 +108,7 @@ resource "aws_vpc_security_group_egress_rule" "eks_egress" {
 # -------- RDS --------
 resource "aws_security_group" "rds" {
   name        = "${var.name_prefix}-sg-rds"
-  description = "PostgreSQL — only from EKS nodes"
+  description = "PostgreSQL - only from EKS nodes"
   vpc_id      = aws_vpc.this.id
 
   tags = merge(local.tags, { Name = "${var.name_prefix}-sg-rds" })
@@ -126,7 +126,7 @@ resource "aws_vpc_security_group_ingress_rule" "rds_from_eks" {
 # -------- Redis --------
 resource "aws_security_group" "redis" {
   name        = "${var.name_prefix}-sg-redis"
-  description = "ElastiCache Redis — only from EKS nodes"
+  description = "ElastiCache Redis - only from EKS nodes"
   vpc_id      = aws_vpc.this.id
 
   tags = merge(local.tags, { Name = "${var.name_prefix}-sg-redis" })

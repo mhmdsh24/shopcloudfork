@@ -1,7 +1,7 @@
 ############################################################
 # Cross-region VPC peering: requester <-> accepter
 #
-# Usage: pass two provider aliases — `aws.requester` (primary region)
+# Usage: pass two provider aliases - `aws.requester` (primary region)
 # and `aws.accepter` (DR region). Module creates the connection on
 # the requester side, accepts it on the accepter side, and installs
 # symmetric routes on the route tables you give it.

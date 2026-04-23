@@ -1,5 +1,5 @@
 ############################################################
-# Cognito — customer + admin user pools.
+# Cognito - customer + admin user pools.
 # Free for the first 50,000 MAUs.
 ############################################################
 
@@ -10,7 +10,7 @@ locals {
 data "aws_region" "current" {}
 
 ############################################################
-# Customer pool — email sign-in, optional TOTP MFA
+# Customer pool - email sign-in, optional TOTP MFA
 ############################################################
 
 resource "aws_cognito_user_pool" "customers" {
@@ -50,7 +50,7 @@ resource "aws_cognito_user_pool" "customers" {
     email_message        = "Your ShopCloud verification code is {####}"
   }
 
-  # Use Cognito default email (free, 50/day) — swap to SES for production.
+  # Use Cognito default email (free, 50/day) - swap to SES for production.
 
   deletion_protection = "INACTIVE"
 
@@ -89,7 +89,7 @@ resource "aws_cognito_user_pool_client" "customer_web" {
 }
 
 ############################################################
-# Admin pool — MFA required, shorter tokens, no self-signup
+# Admin pool - MFA required, shorter tokens, no self-signup
 ############################################################
 
 resource "aws_cognito_user_pool" "admins" {
@@ -174,7 +174,7 @@ resource "aws_cognito_user_pool_client" "admin_web" {
 ############################################################
 
 resource "aws_secretsmanager_secret_version" "cognito_final" {
-  # Static boolean — populate_secret is known at plan time; the secret_id
+  # Static boolean - populate_secret is known at plan time; the secret_id
   # itself is a computed ARN so it can't appear in the count expression.
   count = var.populate_secret ? 1 : 0
 

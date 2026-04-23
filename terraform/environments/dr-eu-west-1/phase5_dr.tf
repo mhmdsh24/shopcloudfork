@@ -1,5 +1,5 @@
 ############################################################
-# Phase 5 — DR region — ALB + WAF + ECS Fargate (scale from 0)
+# Phase 5 - DR region - ALB + WAF + ECS Fargate (scale from 0)
 #
 # Uses the Secrets Manager replicas created by the primary
 # region (regions match by name, not ARN).
@@ -36,7 +36,7 @@ resource "aws_acm_certificate" "dr_alb" {
 # operator can plumb them into Route 53.
 
 # ----------------------------------------------------------
-# DR module — ALB + WAF + ECS Fargate scale-from-zero
+# DR module - ALB + WAF + ECS Fargate scale-from-zero
 # ----------------------------------------------------------
 
 module "dr" {

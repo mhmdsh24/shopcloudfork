@@ -1,5 +1,5 @@
 ############################################################
-# Networking — VPC + subnets + IGW + single NAT + route tables
+# Networking - VPC + subnets + IGW + single NAT + route tables
 ############################################################
 
 locals {
@@ -38,7 +38,7 @@ resource "aws_internet_gateway" "this" {
 }
 
 ############################################################
-# Subnets — public / private-app / private-data, two AZs
+# Subnets - public / private-app / private-data, two AZs
 ############################################################
 
 resource "aws_subnet" "public" {
