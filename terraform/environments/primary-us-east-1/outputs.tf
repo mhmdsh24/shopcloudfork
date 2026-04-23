@@ -174,18 +174,19 @@ output "eks_irsa_role_arns" {
 }
 
 # ---------- Phase 4 — Edge & Access ----------
+# Every output below is nullable: `null` when enable_domain = false.
 
 output "public_zone_id" {
-  value = module.dns.public_zone_id
+  value = try(module.dns[0].public_zone_id, null)
 }
 
 output "public_zone_name_servers" {
   description = "Configure these at your domain registrar."
-  value       = module.dns.public_zone_name_servers
+  value       = try(module.dns[0].public_zone_name_servers, null)
 }
 
 output "private_zone_id" {
-  value = module.dns.private_zone_id
+  value = try(module.dns[0].private_zone_id, null)
 }
 
 output "cloudfront_domain_name" {
@@ -205,13 +206,13 @@ output "cloudfront_certificate_arn" {
 }
 
 output "public_alb_certificate_arn" {
-  description = "ACM cert ARN to set on the public ALB ingress annotation."
-  value       = module.acm_public_alb.certificate_arn
+  description = "ACM cert ARN to set on the public ALB ingress annotation. Null when enable_domain = false."
+  value       = try(module.acm_public_alb[0].certificate_arn, null)
 }
 
 output "internal_alb_certificate_arn" {
-  description = "ACM cert ARN to set on the internal ALB ingress annotation."
-  value       = module.acm_internal_alb.certificate_arn
+  description = "ACM cert ARN to set on the internal ALB ingress annotation. Null when enable_domain = false."
+  value       = try(module.acm_internal_alb[0].certificate_arn, null)
 }
 
 output "vpn_endpoint_id" {

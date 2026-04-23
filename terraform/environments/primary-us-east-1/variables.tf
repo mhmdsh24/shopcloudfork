@@ -146,8 +146,14 @@ variable "domain_name" {
 # Phase 4 — Edge & Access
 ############################################################
 
+variable "enable_domain" {
+  description = "Master switch for every domain-dependent resource: Route 53 zones + records, ACM certificates, and the CloudFront custom alias. Keep `false` until you own a real domain and delegate its NS records to Route 53; ALBs will run over plain HTTP against their default *.elb.amazonaws.com DNS names in the meantime."
+  type        = bool
+  default     = false
+}
+
 variable "enable_cloudfront" {
-  description = "Create the CloudFront + WAF distribution. Requires primary_alb_dns_name."
+  description = "Create the CloudFront + WAF distribution. Requires enable_domain = true and primary_alb_dns_name."
   type        = bool
   default     = false
 }

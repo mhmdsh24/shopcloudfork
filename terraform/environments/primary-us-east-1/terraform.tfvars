@@ -41,10 +41,18 @@ domain_name = "shopcloud.com"
 alert_email = ""
 
 ############################################################
-# Phase 4 toggles — keep OFF for the first apply. Flip them
-# on after the public ALB exists (post kubectl apply).
+# Phase 4 toggles — keep OFF until you own a real domain and
+# delegate its NS records to Route 53. When enable_domain = false,
+# the following are skipped:
+#   * Route 53 public + private hosted zones
+#   * SES DKIM/SPF/DMARC records
+#   * Regional ACM certs for public + internal ALB
+#   * CloudFront custom alias + its ACM cert
+# ALBs still work — they use the default *.elb.amazonaws.com
+# hostnames over plain HTTP.
 ############################################################
 
+enable_domain     = false
 enable_cloudfront = false
 enable_vpn        = false
 enable_cloudtrail = true

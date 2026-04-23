@@ -1,17 +1,18 @@
 ############################################################
 # Phase 4 — Edge & Access
 #
-# Order inside this config:
-#   1. DNS zones (always on — needed for ACM validation)
-#   2. CloudFront + WAF + public ACM
-#   3. (Optional) Client VPN
+# Every resource below is gated by `var.enable_domain`. Set it
+# to `false` (the default) while you don't own a real domain —
+# Terraform will then skip:
 #
-# The ALB DNS names come from annotations on K8s Ingress; since
-# those ALBs are created by the AWS LB Controller at apply-time
-# of the kubectl manifests, they aren't known to Terraform until
-# after the k8s manifests land. The DNS module handles this by
-# accepting empty strings and skipping records until they're
-# populated via var.primary_alb_dns_name / var.dr_alb_dns_name.
+#   * the Route 53 public + private hosted zones and all records
+#   * the two regional ACM certs (public ALB + internal ALB)
+#   * CloudFront custom domain + its ACM cert (via enable_cloudfront)
+#
+# Pods still serve traffic — the AWS Load Balancer Controller
+# will create ALBs with the default `*.us-east-1.elb.amazonaws.com`
+# hostnames over plain HTTP. Flip `enable_domain = true` once
+# you own a domain and delegate its NS to Route 53.
 ############################################################
 
 ############################################################
@@ -23,26 +24,36 @@
 
 module "acm_public_alb" {
   source = "../../modules/acm"
+  count  = var.enable_domain ? 1 : 0
 
   name            = "${local.name_prefix}-public-alb"
   domain_name     = "app.${var.domain_name}"
-  route53_zone_id = module.dns.public_zone_id
+  route53_zone_id = module.dns[0].public_zone_id
 
   tags = local.common_tags
 }
 
 module "acm_internal_alb" {
   source = "../../modules/acm"
+  count  = var.enable_domain ? 1 : 0
 
   name            = "${local.name_prefix}-internal-alb"
   domain_name     = "admin.${var.domain_name}"
-  route53_zone_id = module.dns.public_zone_id
+  route53_zone_id = module.dns[0].public_zone_id
 
   tags = local.common_tags
 }
 
+############################################################
+# Route 53 — public zone, private zone, failover records,
+# SES DKIM/SPF/DMARC. All of this depends on owning the
+# domain (validation records need to resolve on the open
+# internet), so it's gated behind the same flag.
+############################################################
+
 module "dns" {
   source = "../../modules/dns"
+  count  = var.enable_domain ? 1 : 0
 
   domain_name = var.domain_name
   vpc_id      = module.networking.vpc_id
@@ -66,14 +77,16 @@ module "dns" {
 }
 
 # ----------------------------------------------------------
-# CloudFront + WAF — optional. CloudFront needs an ALB origin.
-# If the public ALB isn't up yet, leave enable_cloudfront = false
-# and flip it on once the ALB exists.
+# CloudFront + WAF — optional, AND requires enable_domain=true
+# because the custom alias + ACM cert both depend on a real
+# public zone. WAF itself doesn't need a domain; if you want
+# WAF without the domain stack, flip the count on just the
+# WAF resource inside modules/cdn-waf.
 # ----------------------------------------------------------
 
 module "cdn_waf" {
   source = "../../modules/cdn-waf"
-  count  = var.enable_cloudfront ? 1 : 0
+  count  = var.enable_cloudfront && var.enable_domain ? 1 : 0
 
   providers = {
     aws           = aws
@@ -83,15 +96,14 @@ module "cdn_waf" {
   name_prefix     = local.name_prefix
   domain_name     = var.domain_name
   alb_dns_name    = var.primary_alb_dns_name
-  route53_zone_id = module.dns.public_zone_id
+  route53_zone_id = module.dns[0].public_zone_id
 
   tags = local.common_tags
 }
 
 # ----------------------------------------------------------
-# Client VPN — optional. $73/mo endpoint + $36/mo per subnet
-# association + $0.05/hr per connection. Set enable_vpn=false
-# to defer until needed.
+# Client VPN — independent of the domain toggle; gated by its
+# own `enable_vpn` flag.
 # ----------------------------------------------------------
 
 module "vpn" {
