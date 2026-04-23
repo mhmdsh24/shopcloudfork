@@ -1,0 +1,56 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform-plan.yml"
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: terraform-plan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: plan-${{ matrix.env }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - environments/primary-us-east-1
+          - environments/dr-eu-west-1
+          - global
+    defaults:
+      run:
+        working-directory: terraform/${{ matrix.env }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::781863099565:role/shopcloud-primary-github-deploy
+          aws-region: us-east-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.5
+
+      - run: terraform fmt -check -recursive
+        working-directory: terraform
+
+      - run: terraform init -input=false
+      - run: terraform validate
+      - run: terraform plan -input=false -no-color -out=tfplan
+        id: plan
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ matrix.env }}
+          path: terraform/${{ matrix.env }}/tfplan
+          retention-days: 7

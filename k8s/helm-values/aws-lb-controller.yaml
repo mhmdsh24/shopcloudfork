@@ -1,0 +1,20 @@
+# helm repo add eks https://aws.github.io/eks-charts
+# helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+#   -n kube-system -f aws-lb-controller.yaml
+clusterName: shopcloud-primary
+region: us-east-1
+vpcId: ""        # fill in with Terraform output vpc_id
+image:
+  tag: v2.8.2
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-aws-lb-controller
+replicaCount: 2
+resources:
+  requests: { cpu: 50m,  memory: 96Mi }
+  limits:   { cpu: 200m, memory: 256Mi }
+enableShield: false
+enableWaf: false
+enableWafv2: true

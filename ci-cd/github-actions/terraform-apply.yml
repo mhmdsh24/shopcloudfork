@@ -1,0 +1,63 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform-apply.yml"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Limit apply to a single environment (primary-us-east-1, dr-eu-west-1, global, or all)
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - environments/primary-us-east-1
+          - environments/dr-eu-west-1
+          - global
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: terraform-apply
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: apply-${{ matrix.env }}
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        env:
+          - environments/primary-us-east-1
+          - environments/dr-eu-west-1
+          - global
+    defaults:
+      run:
+        working-directory: terraform/${{ matrix.env }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip if input selects a different env
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.only != 'all' && inputs.only != matrix.env }}
+        run: echo "Skipping ${{ matrix.env }}" && exit 0
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::781863099565:role/shopcloud-primary-github-deploy
+          aws-region: us-east-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.5
+
+      - run: terraform init -input=false
+      - run: terraform apply -auto-approve -input=false

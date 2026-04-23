@@ -1,0 +1,20 @@
+# helm repo add autoscaler https://kubernetes.github.io/autoscaler
+# helm upgrade --install cluster-autoscaler autoscaler/cluster-autoscaler \
+#   -n kube-system -f cluster-autoscaler.yaml
+autoDiscovery:
+  clusterName: shopcloud-primary
+awsRegion: us-east-1
+rbac:
+  serviceAccount:
+    create: true
+    name: cluster-autoscaler
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-cluster-autoscaler
+extraArgs:
+  balance-similar-node-groups: true
+  skip-nodes-with-system-pods: false
+  scale-down-unneeded-time: 5m
+  scale-down-delay-after-add: 2m
+resources:
+  requests: { cpu: 50m,  memory: 96Mi }
+  limits:   { cpu: 200m, memory: 256Mi }

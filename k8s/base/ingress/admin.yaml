@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shopcloud-admin
+  namespace: shopcloud
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    # Replace before applying:
+    #   alb.ingress.kubernetes.io/certificate-arn: <internal ACM cert ARN>
+    alb.ingress.kubernetes.io/group.name: shopcloud-admin
+spec:
+  ingressClassName: alb
+  rules:
+    - host: admin.internal.shopcloud.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: admin, port: { number: 8080 } } }

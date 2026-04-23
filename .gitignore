@@ -1,0 +1,46 @@
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.auto.tfvars
+*.auto.tfvars.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Don't commit the Lambda zip artifact
+terraform/modules/sqs-lambda/build/
+
+# Node / Python / build artifacts (future phases)
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+build/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets — never commit
+*.pem
+*.ovpn
+*.crt
+*.key
+!**/*.example.*
+.env
+.env.*
+!.env.example

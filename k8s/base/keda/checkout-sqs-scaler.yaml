@@ -1,0 +1,35 @@
+# KEDA scales the checkout deployment based on the invoice queue depth.
+# This causes checkout pods to scale out when a backlog forms, improving
+# throughput of OrderCompleted publishers.
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-aws
+  namespace: shopcloud
+spec:
+  podIdentity:
+    provider: aws
+    identityOwner: operator
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: checkout-sqs
+  namespace: shopcloud
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: checkout
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 2
+  maxReplicaCount: 4
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: keda-aws
+      metadata:
+        queueURL: https://sqs.us-east-1.amazonaws.com/781863099565/shopcloud-primary-invoice-queue
+        queueLength: "10"
+        awsRegion: us-east-1

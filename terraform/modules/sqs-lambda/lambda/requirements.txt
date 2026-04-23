@@ -1,0 +1,5 @@
+# reportlab is bundled via a lambda layer or vendored in a real
+# deployment. For now we vendor nothing and the handler falls
+# back to plain-text invoices when reportlab is absent. Add a
+# layer or build step to include these dependencies:
+reportlab==4.2.2
