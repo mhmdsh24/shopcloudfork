@@ -148,7 +148,11 @@ resource "aws_rds_cluster_instance" "this" {
 # ----------------------------------------------------------
 
 resource "aws_secretsmanager_secret_version" "db_final" {
-  count = local.needs_master_creds && var.db_secret_id != null ? 1 : 0
+  # local.needs_master_creds is derived from var.role — known at plan time.
+  # var.db_secret_id is a computed ARN, so we don't include it in the count
+  # expression (it would break plan). If secret_id is null at apply time
+  # the API call fails loudly, which is the correct behavior.
+  count = local.needs_master_creds ? 1 : 0
 
   secret_id = var.db_secret_id
   secret_string = jsonencode({

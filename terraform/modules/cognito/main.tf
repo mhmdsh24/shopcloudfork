@@ -174,7 +174,9 @@ resource "aws_cognito_user_pool_client" "admin_web" {
 ############################################################
 
 resource "aws_secretsmanager_secret_version" "cognito_final" {
-  count = var.cognito_config_secret_id != null ? 1 : 0
+  # Static boolean — populate_secret is known at plan time; the secret_id
+  # itself is a computed ARN so it can't appear in the count expression.
+  count = var.populate_secret ? 1 : 0
 
   secret_id = var.cognito_config_secret_id
   secret_string = jsonencode({

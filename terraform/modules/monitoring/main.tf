@@ -30,7 +30,7 @@ resource "aws_sns_topic_subscription" "email" {
 # ----------------------------------------------------------
 
 resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
-  count = var.aurora_cluster_id != "" ? 1 : 0
+  count = var.enable_rds_alarms ? 1 : 0
 
   alarm_name          = "${var.name_prefix}-rds-cpu-high"
   alarm_description   = "Aurora CPU > 80% for 10 minutes"
@@ -53,7 +53,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "rds_storage" {
-  count = var.aurora_cluster_id != "" ? 1 : 0
+  count = var.enable_rds_alarms ? 1 : 0
 
   alarm_name          = "${var.name_prefix}-rds-free-storage-low"
   alarm_description   = "Aurora free storage < 2 GB"
@@ -74,7 +74,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_storage" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "dlq_messages" {
-  count = var.sqs_dlq_name != "" ? 1 : 0
+  count = var.enable_dlq_alarm ? 1 : 0
 
   alarm_name          = "${var.name_prefix}-invoice-dlq-not-empty"
   alarm_description   = "Invoice DLQ has messages (indicates permanent failure)"
@@ -95,7 +95,7 @@ resource "aws_cloudwatch_metric_alarm" "dlq_messages" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
-  count = var.lambda_function_name != "" ? 1 : 0
+  count = var.enable_lambda_alarm ? 1 : 0
 
   alarm_name          = "${var.name_prefix}-invoice-lambda-errors"
   alarm_description   = "Invoice Lambda errors > 3 in 5 min"
@@ -116,7 +116,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "route53_health" {
-  count = var.route53_health_check_id != "" ? 1 : 0
+  count = var.enable_route53_alarm ? 1 : 0
 
   provider = aws
 

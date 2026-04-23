@@ -68,6 +68,12 @@ variable "ses_dkim_tokens" {
   default     = []
 }
 
+variable "enable_ses_records" {
+  description = "Create the SES verification + DKIM Route 53 records. Static boolean so the count is knowable at plan time."
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

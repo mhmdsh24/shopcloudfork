@@ -54,7 +54,10 @@ module "dr" {
   account_id = data.aws_caller_identity.current.account_id
   region     = var.dr_region
 
-  alb_certificate_arn = try(aws_acm_certificate.dr_alb[0].arn, "")
+  # Whether to attach an HTTPS listener is a static (plan-time) choice
+  # driven by whether the user supplied dr_alb_domain_name in tfvars.
+  enable_https_listener = var.dr_alb_domain_name != ""
+  alb_certificate_arn   = try(aws_acm_certificate.dr_alb[0].arn, "")
 
   db_secret_arn      = local.db_secret_arn_dr
   redis_secret_arn   = local.redis_secret_arn_dr

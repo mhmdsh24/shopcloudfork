@@ -123,7 +123,7 @@ resource "aws_route53_record" "admin_internal" {
 # ----------------------------------------------------------
 
 resource "aws_route53_record" "ses_verification" {
-  count = var.ses_verification_token != "" ? 1 : 0
+  count = var.enable_ses_records ? 1 : 0
 
   zone_id = aws_route53_zone.public.zone_id
   name    = "_amazonses.${var.domain_name}"
@@ -132,14 +132,17 @@ resource "aws_route53_record" "ses_verification" {
   records = [var.ses_verification_token]
 }
 
+# aws_ses_domain_dkim always returns exactly three tokens; iterate over a
+# static set of keys so the for_each map is known at plan time, then index
+# into the (computed) tokens at apply time.
 resource "aws_route53_record" "ses_dkim" {
-  count = length(var.ses_dkim_tokens)
+  for_each = var.enable_ses_records ? toset(["0", "1", "2"]) : toset([])
 
   zone_id = aws_route53_zone.public.zone_id
-  name    = "${var.ses_dkim_tokens[count.index]}._domainkey.${var.domain_name}"
+  name    = "${var.ses_dkim_tokens[tonumber(each.key)]}._domainkey.${var.domain_name}"
   type    = "CNAME"
   ttl     = 600
-  records = ["${var.ses_dkim_tokens[count.index]}.dkim.amazonses.com"]
+  records = ["${var.ses_dkim_tokens[tonumber(each.key)]}.dkim.amazonses.com"]
 }
 
 resource "aws_route53_record" "spf" {

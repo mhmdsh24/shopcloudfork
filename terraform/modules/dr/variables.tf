@@ -61,6 +61,12 @@ variable "alb_certificate_arn" {
   default     = ""
 }
 
+variable "enable_https_listener" {
+  description = "Create the HTTPS listener + listener rules on the DR ALB. Static boolean so count expressions are knowable at plan time."
+  type        = bool
+  default     = false
+}
+
 variable "db_secret_arn" {
   description = "Secrets Manager ARN for DB creds (replica in DR region)."
   type        = string

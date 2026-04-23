@@ -43,6 +43,12 @@ variable "redis_secret_id" {
   default     = null
 }
 
+variable "populate_secret" {
+  description = "Write the final Redis connection info into var.redis_secret_id at apply time."
+  type        = bool
+  default     = true
+}
+
 variable "kms_key_id" {
   description = "KMS key ARN/ID for at-rest encryption. Null = AWS-managed."
   type        = string

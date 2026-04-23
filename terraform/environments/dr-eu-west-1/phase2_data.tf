@@ -68,6 +68,10 @@ module "redis_dr" {
   # can read the primary's secret (replicated) to sync post-failover.
   auth_token = random_password.redis_dr_auth.result
 
+  # Primary region owns the shopcloud/redis/auth secret (replicated to DR).
+  # Don't overwrite it from here.
+  populate_secret = false
+
   tags = local.common_tags
 }
 

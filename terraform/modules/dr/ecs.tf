@@ -158,7 +158,7 @@ locals {
 }
 
 resource "aws_lb_listener_rule" "svc" {
-  for_each = var.alb_certificate_arn != "" ? var.services : {}
+  for_each = var.enable_https_listener ? var.services : {}
 
   listener_arn = aws_lb_listener.https[0].arn
   priority     = local.priority_index[each.key]
@@ -257,7 +257,7 @@ resource "aws_ecs_service" "svc" {
   }
 
   dynamic "load_balancer" {
-    for_each = var.alb_certificate_arn != "" ? [1] : []
+    for_each = var.enable_https_listener ? [1] : []
     content {
       target_group_arn = aws_lb_target_group.svc[each.key].arn
       container_name   = each.key

@@ -36,7 +36,7 @@ resource "aws_lb_listener" "http_redirect" {
 # HTTPS listener that returns 503 by default — real rules are
 # added per service below.
 resource "aws_lb_listener" "https" {
-  count = var.alb_certificate_arn != "" ? 1 : 0
+  count = var.enable_https_listener ? 1 : 0
 
   load_balancer_arn = aws_lb.public.arn
   port              = 443

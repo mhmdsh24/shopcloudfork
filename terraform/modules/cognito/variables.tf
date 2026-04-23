@@ -33,6 +33,12 @@ variable "cognito_config_secret_id" {
   default     = null
 }
 
+variable "populate_secret" {
+  description = "Write the final cognito config into var.cognito_config_secret_id at apply time."
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

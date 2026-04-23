@@ -69,7 +69,8 @@ resource "aws_elasticache_replication_group" "this" {
 # ----------------------------------------------------------
 
 resource "aws_secretsmanager_secret_version" "redis_final" {
-  count = var.redis_secret_id != null ? 1 : 0
+  # See cognito module for why the count uses a static boolean.
+  count = var.populate_secret ? 1 : 0
 
   secret_id = var.redis_secret_id
   secret_string = jsonencode({
