@@ -1,7 +1,0 @@
-# DR region uses ECS Fargate (not EKS) per the architecture spec.
-# This file exists so kustomize overlays are symmetrical, but the
-# actual DR workload is defined in terraform/modules/dr/.
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-resources: []

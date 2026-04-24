@@ -2,9 +2,8 @@
 # DR environment - eu-west-1
 #
 # Phase 1: Networking only.
-# Subsequent phases add the DR ALB, WAF, ECS Fargate (scale
-# from zero), cross-region RDS read replica, standalone
-# ElastiCache, ACM, ECR replicas, etc. - all consuming
+# Subsequent phases add cross-region RDS read replica,
+# standalone ElastiCache, ACM, ECR replicas, etc. - all consuming
 # module.networking outputs.
 ############################################################
 

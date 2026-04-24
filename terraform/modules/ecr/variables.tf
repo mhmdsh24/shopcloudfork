@@ -1,7 +1,7 @@
 variable "repositories" {
   description = "Repository short names - final name becomes shopcloud/<name>."
   type        = list(string)
-  default     = ["catalog", "cart", "checkout", "auth", "admin", "invoice-generator", "frontend"]
+  default     = ["catalog", "cart", "checkout", "auth", "admin"]
 }
 
 variable "replica_region" {

@@ -6,22 +6,14 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
-    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
     alb.ingress.kubernetes.io/healthcheck-port: traffic-port
-    # Replace before applying:
-    #   alb.ingress.kubernetes.io/certificate-arn: <public ACM cert ARN>
-    #   alb.ingress.kubernetes.io/wafv2-acl-arn:   <public WAF Web ACL ARN>
-    alb.ingress.kubernetes.io/load-balancer-attributes: >-
-      idle_timeout.timeout_seconds=60,deletion_protection.enabled=true
     alb.ingress.kubernetes.io/group.name: shopcloud-public
 spec:
   ingressClassName: alb
   rules:
-    - host: app.shopcloud.com
-      http:
+    - http:
         paths:
           - path: /api/catalog
             pathType: Prefix
@@ -37,4 +29,4 @@ spec:
             backend: { service: { name: auth,     port: { number: 8080 } } }
           - path: /
             pathType: Prefix
-            backend: { service: { name: frontend, port: { number: 8080 } } }
+            backend: { service: { name: catalog, port: { number: 8080 } } }

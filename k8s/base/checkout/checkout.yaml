@@ -36,12 +36,14 @@ spec:
       containers:
         - name: checkout
           image: 781863099565.dkr.ecr.us-east-1.amazonaws.com/shopcloud/checkout:latest
+          imagePullPolicy: Always
           ports: [{ name: http, containerPort: 8080 }]
           env:
             - { name: LOG_LEVEL, value: info }
             - { name: AWS_REGION, value: us-east-1 }
-            - { name: EVENT_BUS_NAME, value: shopcloud-primary-events }
+            - { name: INVOICE_QUEUE_URL, value: "https://sqs.us-east-1.amazonaws.com/781863099565/shopcloud-primary-invoice-queue" }
           envFrom:
+            - configMapRef: { name: shopcloud-config, optional: true }
             - secretRef: { name: checkout-secrets, optional: true }
           resources:
             requests: { cpu: 100m, memory: 128Mi }
@@ -88,30 +90,3 @@ spec:
   metrics:
     - type: Resource
       resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata: { name: checkout, namespace: shopcloud }
-spec:
-  podSelector: { matchLabels: { app: checkout } }
-  policyTypes: ["Ingress", "Egress"]
-  ingress:
-    - from: [{ ipBlock: { cidr: 10.0.0.0/16 } }]
-      ports: [{ port: 8080, protocol: TCP }]
-  egress:
-    - to: [{ namespaceSelector: {} }]
-      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
-    # talk to cart + auth
-    - to:
-        - podSelector: { matchLabels: { app: cart } }
-        - podSelector: { matchLabels: { app: auth } }
-      ports: [{ port: 8080, protocol: TCP }]
-    # RDS + Redis
-    - to: [{ ipBlock: { cidr: 10.0.20.0/23 } }]
-      ports:
-        - { port: 5432, protocol: TCP }
-        - { port: 6379, protocol: TCP }
-    # AWS APIs (EventBridge, Secrets Manager)
-    - to:
-        - ipBlock: { cidr: 0.0.0.0/0, except: ["169.254.169.254/32"] }
-      ports: [{ port: 443, protocol: TCP }]

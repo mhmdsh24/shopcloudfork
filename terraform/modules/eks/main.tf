@@ -150,7 +150,15 @@ resource "aws_launch_template" "nodes" {
   name_prefix            = "${var.cluster_name}-nodes-"
   update_default_version = true
 
-  vpc_security_group_ids = var.node_security_group_ids
+  # Must include the EKS-managed cluster security group so the
+  # node's kubelet can reach the control-plane ENIs on 443/10250.
+  # When a custom launch template is used, AWS stops auto-
+  # attaching this SG - we have to add it explicitly. Without
+  # it the node boots fine but never registers with the cluster.
+  vpc_security_group_ids = concat(
+    var.node_security_group_ids,
+    [aws_eks_cluster.this.vpc_config[0].cluster_security_group_id],
+  )
 
   metadata_options {
     http_endpoint               = "enabled"
@@ -272,9 +280,7 @@ resource "aws_eks_addon" "vpc_cni" {
   resolve_conflicts_on_update = "OVERWRITE"
 
   configuration_values = jsonencode({
-    env = {
-      ENABLE_NETWORK_POLICY = "true"
-    }
+    enableNetworkPolicy = "true"
   })
 
   depends_on = [aws_eks_node_group.workers]

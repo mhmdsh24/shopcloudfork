@@ -35,6 +35,14 @@ resource "aws_ec2_client_vpn_endpoint" "this" {
     root_certificate_chain_arn = var.client_root_certificate_arn
   }
 
+  dynamic "authentication_options" {
+    for_each = var.mfa_saml_provider_arn != "" ? [1] : []
+    content {
+      type              = "federated-authentication"
+      saml_provider_arn = var.mfa_saml_provider_arn
+    }
+  }
+
   connection_log_options {
     enabled               = true
     cloudwatch_log_group  = aws_cloudwatch_log_group.vpn.name

@@ -52,10 +52,11 @@ alert_email = ""
 # hostnames over plain HTTP.
 ############################################################
 
-enable_domain     = false
-enable_cloudfront = false
-enable_vpn        = false
-enable_cloudtrail = true
+enable_domain     = true
+enable_cloudfront = true
+enable_vpn        = true
+enable_cloudtrail = false
+vpn_mfa_saml_provider_arn = "arn:aws:iam::781863099565:saml-provider/shopcloud-vpn-mfa"
 
 ############################################################
 # RDS PostgreSQL - spec Option A (Free Tier).
@@ -71,9 +72,9 @@ postgres_parameter_group_family = "postgres15"
 postgres_instance_class         = "db.t3.micro"
 postgres_allocated_storage_gb   = 20
 postgres_storage_type           = "gp2"
-postgres_multi_az               = false
-postgres_backup_retention_days  = 1
-enable_cross_region_replica     = false
+postgres_multi_az               = true
+postgres_backup_retention_days  = 7
+enable_cross_region_replica     = true
 
 ############################################################
 # EKS node group - free-tier constrained defaults.
@@ -90,8 +91,8 @@ enable_cross_region_replica     = false
 #   eks_node_max_size       = 4
 ############################################################
 
-eks_node_instance_types = ["t3.micro"]
+eks_node_instance_types = ["t3.small"]
 eks_node_capacity_type  = "ON_DEMAND"
-eks_node_desired_size   = 1
+eks_node_desired_size   = 2
 eks_node_min_size       = 1
-eks_node_max_size       = 2
+eks_node_max_size       = 3

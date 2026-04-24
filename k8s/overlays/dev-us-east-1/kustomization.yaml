@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - ../../addons/keda
+
+commonLabels:
+  region: us-east-1
+  environment: development
+
+patches:
+  - path: patches/dev-scale.yaml

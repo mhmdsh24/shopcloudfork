@@ -1,11 +1,3 @@
-output "event_bus_name" {
-  value = aws_cloudwatch_event_bus.shopcloud.name
-}
-
-output "event_bus_arn" {
-  value = aws_cloudwatch_event_bus.shopcloud.arn
-}
-
 output "invoice_queue_url" {
   value = aws_sqs_queue.invoice.url
 }
@@ -16,10 +8,6 @@ output "invoice_queue_arn" {
 
 output "invoice_dlq_arn" {
   value = aws_sqs_queue.invoice_dlq.arn
-}
-
-output "eventbridge_dlq_arn" {
-  value = aws_sqs_queue.eventbridge_dlq.arn
 }
 
 output "lambda_function_arn" {

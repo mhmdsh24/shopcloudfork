@@ -35,6 +35,12 @@ variable "client_root_certificate_arn" {
   type        = string
 }
 
+variable "mfa_saml_provider_arn" {
+  description = "IAM SAML provider ARN used for federated MFA authentication."
+  type        = string
+  default     = ""
+}
+
 variable "dns_servers" {
   description = "DNS servers advertised to clients. Defaults to VPC resolver."
   type        = list(string)

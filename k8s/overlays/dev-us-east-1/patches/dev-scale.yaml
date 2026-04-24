@@ -1,0 +1,100 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin
+  namespace: shopcloud
+spec:
+  replicas: 1
+  template:
+    spec:
+      topologySpreadConstraints: []
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: shopcloud
+spec:
+  replicas: 1
+  template:
+    spec:
+      topologySpreadConstraints: []
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart
+  namespace: shopcloud
+spec:
+  replicas: 1
+  template:
+    spec:
+      topologySpreadConstraints: []
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog
+  namespace: shopcloud
+spec:
+  replicas: 1
+  template:
+    spec:
+      topologySpreadConstraints: []
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+  namespace: shopcloud
+spec:
+  replicas: 1
+  template:
+    spec:
+      topologySpreadConstraints: []
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: admin
+  namespace: shopcloud
+spec:
+  minReplicas: 1
+  maxReplicas: 2
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth
+  namespace: shopcloud
+spec:
+  minReplicas: 1
+  maxReplicas: 2
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cart
+  namespace: shopcloud
+spec:
+  minReplicas: 1
+  maxReplicas: 2
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: catalog
+  namespace: shopcloud
+spec:
+  minReplicas: 1
+  maxReplicas: 2
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: checkout
+  namespace: shopcloud
+spec:
+  minReplicas: 1
+  maxReplicas: 2

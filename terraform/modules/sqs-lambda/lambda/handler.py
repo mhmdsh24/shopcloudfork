@@ -1,6 +1,6 @@
 """ShopCloud invoice generator.
 
-Receives OrderCompleted events from SQS (delivered by EventBridge),
+Receives OrderCompleted events from SQS,
 renders a PDF invoice, writes it to S3, and emails a link via SES.
 """
 from __future__ import annotations
@@ -143,7 +143,6 @@ def _send_email(to_email: str, order_id: str, s3_key: str) -> None:
 
 def _parse_event(record: dict) -> dict:
     body = json.loads(record["body"])
-    # EventBridge delivery envelopes the event; unwrap if present.
     return body.get("detail", body)
 
 

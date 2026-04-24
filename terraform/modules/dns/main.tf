@@ -1,6 +1,6 @@
 ############################################################
-# DNS - public + private hosted zones, failover records,
-# SES DKIM/SPF/DMARC, health checks.
+# DNS - public + private hosted zones, latency records,
+# SES DKIM/SPF/DMARC.
 ############################################################
 
 locals {
@@ -31,29 +31,7 @@ resource "aws_route53_zone" "private" {
 }
 
 # ----------------------------------------------------------
-# Health check on the primary ALB - drives failover
-# ----------------------------------------------------------
-
-resource "aws_route53_health_check" "primary" {
-  count = var.primary_alb_dns_name != "" ? 1 : 0
-
-  fqdn              = var.primary_alb_dns_name
-  type              = "HTTPS"
-  resource_path     = "/healthz"
-  port              = 443
-  request_interval  = 30
-  failure_threshold = 3
-
-  tags = merge(local.tags, { Name = "shopcloud-primary-healthcheck" })
-}
-
-# ----------------------------------------------------------
-# Failover A-alias records for app.<domain>
-#
-# Primary points to CloudFront (which sits in front of primary
-# ALB); Secondary points directly at the DR ALB. If CloudFront
-# isn't used, set cloudfront_domain_name empty and the primary
-# will alias to the primary ALB instead.
+# Latency-based A-alias records for app.<domain>
 # ----------------------------------------------------------
 
 locals {
@@ -68,11 +46,9 @@ resource "aws_route53_record" "app_primary" {
   type           = "A"
   set_identifier = "primary-us-east-1"
 
-  failover_routing_policy {
-    type = "PRIMARY"
+  latency_routing_policy {
+    region = var.primary_region
   }
-
-  health_check_id = var.primary_alb_dns_name != "" ? aws_route53_health_check.primary[0].id : null
 
   alias {
     name                   = local.use_cf ? var.cloudfront_domain_name : var.primary_alb_dns_name
@@ -82,20 +58,20 @@ resource "aws_route53_record" "app_primary" {
 }
 
 resource "aws_route53_record" "app_dr" {
-  count = var.dr_alb_dns_name != "" ? 1 : 0
+  count = (local.use_cf || var.dr_alb_dns_name != "") ? 1 : 0
 
   zone_id        = aws_route53_zone.public.zone_id
   name           = "app.${var.domain_name}"
   type           = "A"
   set_identifier = "secondary-eu-west-1"
 
-  failover_routing_policy {
-    type = "SECONDARY"
+  latency_routing_policy {
+    region = var.dr_region
   }
 
   alias {
-    name                   = var.dr_alb_dns_name
-    zone_id                = var.dr_alb_zone_id
+    name                   = local.use_cf ? var.cloudfront_domain_name : var.dr_alb_dns_name
+    zone_id                = local.use_cf ? var.cloudfront_zone_id : var.dr_alb_zone_id
     evaluate_target_health = true
   }
 }

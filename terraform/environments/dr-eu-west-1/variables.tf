@@ -39,7 +39,7 @@ variable "public_subnet_cidrs" {
 }
 
 variable "private_app_subnet_cidrs" {
-  description = "Private app subnet CIDRs (ECS Fargate tasks)."
+  description = "Private app subnet CIDRs."
   type        = list(string)
   default     = ["10.1.10.0/24", "10.1.11.0/24"]
 }
@@ -96,12 +96,3 @@ variable "redis_node_type" {
   default     = "cache.t4g.micro"
 }
 
-############################################################
-# Phase 5 - DR
-############################################################
-
-variable "dr_alb_domain_name" {
-  description = "Domain name for the DR ALB cert (e.g. dr.shopcloud.com). Empty = skip cert + HTTPS listener."
-  type        = string
-  default     = ""
-}

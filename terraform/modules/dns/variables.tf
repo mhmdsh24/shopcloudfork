@@ -32,6 +32,18 @@ variable "dr_alb_zone_id" {
   default     = ""
 }
 
+variable "primary_region" {
+  description = "Primary region for latency routing."
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "dr_region" {
+  description = "Secondary region for latency routing."
+  type        = string
+  default     = "eu-west-1"
+}
+
 variable "cloudfront_domain_name" {
   description = "CloudFront distribution domain (if fronting the primary)."
   type        = string
