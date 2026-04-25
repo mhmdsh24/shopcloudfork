@@ -53,7 +53,7 @@ alert_email = ""
 ############################################################
 
 enable_domain     = true
-enable_cloudfront = true
+enable_cloudfront = false
 enable_vpn        = true
 enable_cloudtrail = false
 vpn_mfa_saml_provider_arn = "arn:aws:iam::781863099565:saml-provider/shopcloud-vpn-mfa"
