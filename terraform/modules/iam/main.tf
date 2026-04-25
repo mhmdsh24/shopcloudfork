@@ -134,6 +134,8 @@ data "aws_iam_policy_document" "github_deploy" {
     effect = "Allow"
     actions = [
       "ec2:Describe*",
+      "ecr:DescribeRegistry",
+      "ecr:ListTagsForResource",
       "iam:Get*",
       "iam:List*",
       "rds:Describe*",
