@@ -17,7 +17,7 @@ resource "aws_ecr_repository" "this" {
   for_each = toset(var.repositories)
 
   name                 = "shopcloud/${each.key}"
-  image_tag_mutability = "IMMUTABLE"
+  image_tag_mutability = "MUTABLE"
   force_delete         = true
 
   image_scanning_configuration {
