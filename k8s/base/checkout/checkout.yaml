@@ -13,7 +13,7 @@ metadata:
   namespace: shopcloud
   labels: { app: checkout, tier: api }
 spec:
-  replicas: 2
+  replicas: 1
   revisionHistoryLimit: 3
   strategy: { type: RollingUpdate, rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } }
   selector: { matchLabels: { app: checkout } }
@@ -35,7 +35,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: checkout
-          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud/checkout:latest
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud/checkout:prod-latest
           imagePullPolicy: Always
           ports: [{ name: http, containerPort: 8080 }]
           env:
@@ -46,8 +46,8 @@ spec:
             - configMapRef: { name: shopcloud-config, optional: true }
             - secretRef: { name: checkout-secrets, optional: true }
           resources:
-            requests: { cpu: 100m, memory: 128Mi }
-            limits:   { cpu: 500m, memory: 256Mi }
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { cpu: 250m, memory: 128Mi }
           livenessProbe:
             httpGet: { path: /healthz, port: http }
             initialDelaySeconds: 15
@@ -85,7 +85,7 @@ kind: HorizontalPodAutoscaler
 metadata: { name: checkout, namespace: shopcloud }
 spec:
   scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: checkout }
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 4
   metrics:
     - type: Resource

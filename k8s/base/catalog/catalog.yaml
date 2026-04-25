@@ -16,7 +16,7 @@ metadata:
     app: catalog
     tier: api
 spec:
-  replicas: 2
+  replicas: 1
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
@@ -50,7 +50,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: catalog
-          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud/catalog:latest
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud/catalog:prod-latest
           imagePullPolicy: Always
           ports:
             - name: http
@@ -69,11 +69,11 @@ spec:
                 optional: true
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
-              cpu: 500m
-              memory: 256Mi
+              cpu: 250m
+              memory: 128Mi
           livenessProbe:
             httpGet:
               path: /healthz
@@ -139,7 +139,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: catalog
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 4
   metrics:
     - type: Resource
