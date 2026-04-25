@@ -67,7 +67,7 @@ vpn_mfa_saml_provider_arn = "arn:aws:iam::781863099565:saml-provider/shopcloud-v
 #   postgres_backup_retention_days = 7
 ############################################################
 
-postgres_engine_version         = "15.7"
+postgres_engine_version         = "15.10"
 postgres_parameter_group_family = "postgres15"
 postgres_instance_class         = "db.t3.micro"
 postgres_allocated_storage_gb   = 20
