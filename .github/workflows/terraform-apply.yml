@@ -59,5 +59,13 @@ jobs:
         with:
           terraform_version: 1.14.5
 
+      - name: Build invoice lambda package inputs
+        working-directory: .
+        run: |
+          set -euo pipefail
+          mkdir -p terraform/modules/sqs-lambda/build/lambda
+          python3 -m pip install -r terraform/modules/sqs-lambda/lambda/requirements.txt -t terraform/modules/sqs-lambda/build/lambda
+          cp terraform/modules/sqs-lambda/lambda/handler.py terraform/modules/sqs-lambda/build/lambda/
+
       - run: terraform init -input=false
       - run: terraform apply -auto-approve -input=false
