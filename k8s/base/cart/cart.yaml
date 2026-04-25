@@ -43,6 +43,8 @@ spec:
           env:
             - { name: LOG_LEVEL, value: info }
             - { name: AWS_REGION, value: us-east-1 }
+            - { name: REDIS_HOST, value: master.shopcloud-primary-redis.rjenu9.use1.cache.amazonaws.com }
+            - { name: REDIS_PORT, value: "6379" }
           envFrom:
             - configMapRef: { name: shopcloud-config, optional: true }
             - secretRef: { name: cart-secrets, optional: true }
