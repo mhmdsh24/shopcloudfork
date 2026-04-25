@@ -15,6 +15,10 @@
 # you own a domain and delegate its NS to Route 53.
 ############################################################
 
+locals {
+  create_cloudfront = var.enable_cloudfront && var.enable_domain && trimspace(var.primary_alb_dns_name) != ""
+}
+
 ############################################################
 # Regional ACM certs - one for the public ALB, one for the
 # internal ALB. The AWS Load Balancer Controller picks them up
@@ -69,8 +73,8 @@ module "dns" {
   dr_alb_zone_id        = var.dr_alb_zone_id
   dr_region             = var.dr_region
 
-  cloudfront_domain_name = var.enable_cloudfront ? module.cdn_waf[0].distribution_domain_name : ""
-  cloudfront_zone_id     = var.enable_cloudfront ? module.cdn_waf[0].distribution_hosted_zone_id : "Z2FDTNDATAQYW2"
+  cloudfront_domain_name = local.create_cloudfront ? module.cdn_waf[0].distribution_domain_name : ""
+  cloudfront_zone_id     = local.create_cloudfront ? module.cdn_waf[0].distribution_hosted_zone_id : "Z2FDTNDATAQYW2"
 
   ses_verification_token = module.sqs_lambda.ses_domain_verification_token
   ses_dkim_tokens        = module.sqs_lambda.ses_dkim_tokens
@@ -88,7 +92,7 @@ module "dns" {
 
 module "cdn_waf" {
   source = "../../modules/cdn-waf"
-  count  = var.enable_cloudfront && var.enable_domain ? 1 : 0
+  count  = local.create_cloudfront ? 1 : 0
 
   providers = {
     aws           = aws
