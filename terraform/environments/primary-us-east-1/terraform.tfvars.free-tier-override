@@ -1,0 +1,13 @@
+# FOR LOCAL TESTING ONLY — not the production spec.
+# Usage:
+# terraform apply -var-file=terraform.tfvars -var-file=terraform.tfvars.free-tier-override
+
+enable_domain                 = false
+enable_cloudfront             = false
+enable_vpn                    = false
+postgres_multi_az             = false
+postgres_backup_retention_days = 1
+enable_cross_region_replica   = false
+eks_node_instance_types       = ["t3.small"]
+eks_node_min_size             = 1
+eks_node_max_size             = 3

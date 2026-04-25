@@ -13,7 +13,7 @@
 set -euo pipefail
 
 REGION="${AWS_REGION:-us-east-1}"
-ACCOUNT_ID="${AWS_ACCOUNT_ID:-781863099565}"
+ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}"
 BUCKET="shopcloud-tfstate-${ACCOUNT_ID}"
 TABLE="shopcloud-terraform-locks"
 

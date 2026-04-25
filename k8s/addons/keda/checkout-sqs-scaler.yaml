@@ -30,6 +30,6 @@ spec:
       authenticationRef:
         name: keda-aws
       metadata:
-        queueURL: https://sqs.us-east-1.amazonaws.com/781863099565/shopcloud-primary-invoice-queue
+        queueURL: https://sqs.us-east-1.amazonaws.com/${AWS_ACCOUNT_ID}/shopcloud-primary-invoice-queue
         queueLength: "10"
         awsRegion: us-east-1

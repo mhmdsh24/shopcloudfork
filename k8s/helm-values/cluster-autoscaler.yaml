@@ -9,7 +9,7 @@ rbac:
     create: true
     name: cluster-autoscaler
     annotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-cluster-autoscaler
+      eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/shopcloud-primary-irsa-cluster-autoscaler
 extraArgs:
   balance-similar-node-groups: true
   skip-nodes-with-system-pods: false

@@ -14,7 +14,6 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  ACCOUNT_ID: "781863099565"
   TARGET_ENV: dev
 
 jobs:
@@ -30,7 +29,7 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::781863099565:role/shopcloud-dev-github-deploy
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/shopcloud-dev-github-deploy
           aws-region: ${{ env.AWS_REGION }}
 
       - uses: aws-actions/amazon-ecr-login@v2
@@ -44,7 +43,7 @@ jobs:
           context: services/${{ matrix.service }}
           push: true
           tags: |
-            ${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud/${{ matrix.service }}:${{ github.sha }}
-            ${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud/${{ matrix.service }}:${{ env.TARGET_ENV }}-latest
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud/${{ matrix.service }}:${{ github.sha }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud/${{ matrix.service }}:${{ env.TARGET_ENV }}-latest
           cache-from: type=gha,scope=dev-${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=dev-${{ matrix.service }}

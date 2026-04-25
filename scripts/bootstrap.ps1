@@ -18,7 +18,9 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if (-not $Region)    { $Region    = 'us-east-1' }
-if (-not $AccountId) { $AccountId = '781863099565' }
+if (-not $AccountId) {
+    $AccountId = aws sts get-caller-identity --query Account --output text
+}
 
 $Bucket = "shopcloud-tfstate-$AccountId"
 $Table  = 'shopcloud-terraform-locks'

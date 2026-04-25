@@ -13,22 +13,16 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 import boto3
-
-try:
-    from reportlab.lib.pagesizes import letter
-    from reportlab.lib.styles import getSampleStyleSheet
-    from reportlab.platypus import (
-        SimpleDocTemplate,
-        Paragraph,
-        Spacer,
-        Table,
-        TableStyle,
-    )
-    from reportlab.lib import colors
-
-    HAS_REPORTLAB = True
-except ImportError:
-    HAS_REPORTLAB = False
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+)
+from reportlab.lib import colors
 
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -43,16 +37,7 @@ ses = boto3.client("ses")
 
 
 def _render_pdf(order: dict) -> bytes:
-    """Render an order dict into a PDF. Falls back to plain text if
-    reportlab is missing (useful for tests without the dependency)."""
-    if not HAS_REPORTLAB:
-        body = (
-            f"INVOICE {order['order_id']}\n"
-            f"Customer: {order['customer_email']}\n"
-            f"Total: {order['total']} {order.get('currency', 'USD')}\n"
-        )
-        return body.encode("utf-8")
-
+    """Render an order dict into a PDF."""
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=letter)
     styles = getSampleStyleSheet()

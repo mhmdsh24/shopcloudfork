@@ -4,7 +4,7 @@ metadata:
   name: admin
   namespace: shopcloud
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-admin
+    eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/shopcloud-primary-irsa-admin
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -34,7 +34,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: admin
-          image: 781863099565.dkr.ecr.us-east-1.amazonaws.com/shopcloud/admin:latest
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud/admin:latest
           imagePullPolicy: Always
           ports: [{ name: http, containerPort: 8080 }]
           env:

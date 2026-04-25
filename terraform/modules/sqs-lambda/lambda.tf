@@ -10,10 +10,29 @@
 # Package the handler code from this module
 # ----------------------------------------------------------
 
+resource "terraform_data" "lambda_build" {
+  triggers_replace = {
+    requirements_hash = filesha256("${path.module}/lambda/requirements.txt")
+    handler_hash      = filesha256("${path.module}/lambda/handler.py")
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -euo pipefail
+      rm -rf "${path.module}/build/lambda"
+      mkdir -p "${path.module}/build/lambda"
+      python3 -m pip install -r "${path.module}/lambda/requirements.txt" -t "${path.module}/build/lambda"
+      cp "${path.module}/lambda/handler.py" "${path.module}/build/lambda/handler.py"
+    EOT
+    interpreter = ["/bin/bash", "-c"]
+  }
+}
+
 data "archive_file" "invoice_lambda" {
   type        = "zip"
-  source_dir  = "${path.module}/lambda"
+  source_dir  = "${path.module}/build/lambda"
   output_path = "${path.module}/build/invoice-generator.zip"
+  depends_on  = [terraform_data.lambda_build]
 }
 
 # ----------------------------------------------------------

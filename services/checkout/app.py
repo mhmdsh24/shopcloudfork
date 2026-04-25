@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 app = FastAPI(title="shopcloud-checkout")
@@ -65,7 +66,7 @@ def checkout(order: Order) -> dict:
             sqs.send_message(QueueUrl=SQS_URL, MessageBody=json.dumps(message))
         except (ClientError, BotoCoreError) as exc:
             sqs_error = str(exc)
-    return {
+    response = {
         "order_id": order_id,
         "customer_email": order.customer_email,
         "total": order.total,
@@ -75,3 +76,6 @@ def checkout(order: Order) -> dict:
         "sqs_publish_error": sqs_error,
         "region": os.environ.get("AWS_REGION", "unknown"),
     }
+    if sqs_error:
+        return JSONResponse(status_code=207, content=response)
+    return response

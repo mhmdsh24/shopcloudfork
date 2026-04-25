@@ -5,7 +5,7 @@ metadata:
   namespace: shopcloud
   annotations:
     # Replace <account-id> with Terraform output eks_irsa_role_arns.catalog
-    eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-catalog
+    eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/shopcloud-primary-irsa-catalog
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -50,7 +50,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: catalog
-          image: 781863099565.dkr.ecr.us-east-1.amazonaws.com/shopcloud/catalog:latest
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud/catalog:latest
           imagePullPolicy: Always
           ports:
             - name: http

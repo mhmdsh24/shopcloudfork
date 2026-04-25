@@ -4,7 +4,7 @@ serviceAccount:
   create: true
   name: keda-operator
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-keda
+    eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/shopcloud-primary-irsa-keda
 resources:
   operator:
     requests: { cpu: 50m,  memory: 96Mi }
@@ -16,4 +16,4 @@ podIdentity:
   aws:
     irsa:
       enabled: true
-      roleArn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-keda
+      roleArn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/shopcloud-primary-irsa-keda

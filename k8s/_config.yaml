@@ -1,0 +1,4 @@
+# Central deployment substitutions for Kubernetes manifests.
+# Set AWS_ACCOUNT_ID in your deploy pipeline environment, then substitute
+# ${AWS_ACCOUNT_ID} placeholders before apply (envsubst or equivalent).
+aws_account_id: "${AWS_ACCOUNT_ID}"

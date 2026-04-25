@@ -4,7 +4,7 @@ metadata:
   name: checkout
   namespace: shopcloud
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-checkout
+    eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/shopcloud-primary-irsa-checkout
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -35,13 +35,13 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: checkout
-          image: 781863099565.dkr.ecr.us-east-1.amazonaws.com/shopcloud/checkout:latest
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud/checkout:latest
           imagePullPolicy: Always
           ports: [{ name: http, containerPort: 8080 }]
           env:
             - { name: LOG_LEVEL, value: info }
             - { name: AWS_REGION, value: us-east-1 }
-            - { name: INVOICE_QUEUE_URL, value: "https://sqs.us-east-1.amazonaws.com/781863099565/shopcloud-primary-invoice-queue" }
+            - { name: INVOICE_QUEUE_URL, value: "https://sqs.us-east-1.amazonaws.com/${AWS_ACCOUNT_ID}/shopcloud-primary-invoice-queue" }
           envFrom:
             - configMapRef: { name: shopcloud-config, optional: true }
             - secretRef: { name: checkout-secrets, optional: true }

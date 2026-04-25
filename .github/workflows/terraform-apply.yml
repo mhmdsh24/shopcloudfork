@@ -52,7 +52,7 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::781863099565:role/shopcloud-primary-github-deploy
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/shopcloud-primary-github-deploy
           aws-region: us-east-1
 
       - uses: hashicorp/setup-terraform@v3

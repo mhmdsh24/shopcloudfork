@@ -19,7 +19,6 @@ env:
   AWS_REGION: us-east-1
   CLUSTER: shopcloud-dev
   NAMESPACE: shopcloud
-  ACCOUNT_ID: "781863099565"
 
 jobs:
   deploy:
@@ -31,7 +30,7 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::781863099565:role/shopcloud-dev-github-deploy
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/shopcloud-dev-github-deploy
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Update kubeconfig
@@ -46,11 +45,24 @@ jobs:
             echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Render and apply manifests
+        run: |
+          set -euo pipefail
+          kubectl kustomize k8s/overlays/dev-us-east-1 > rendered-dev-us-east-1.yaml
+          python3 - "${{ secrets.AWS_ACCOUNT_ID }}" <<'PY'
+          from pathlib import Path
+          import sys
+          account_id = sys.argv[1]
+          p = Path("rendered-dev-us-east-1.yaml")
+          p.write_text(p.read_text().replace("${AWS_ACCOUNT_ID}", account_id))
+          PY
+          kubectl apply -f rendered-dev-us-east-1.yaml
+
       - name: Rollout each service
         run: |
           set -euo pipefail
           TAG="${{ steps.tag.outputs.sha }}"
-          REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          REGISTRY="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com"
           for SVC in catalog cart checkout auth admin; do
             echo "Deploying $SVC -> $TAG"
             kubectl -n "$NAMESPACE" set image "deployment/$SVC" "$SVC=$REGISTRY/shopcloud/$SVC:$TAG"

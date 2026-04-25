@@ -10,7 +10,7 @@ serviceAccount:
   create: true
   name: aws-load-balancer-controller
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-aws-lb-controller
+    eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/shopcloud-primary-irsa-aws-lb-controller
 replicaCount: 2
 resources:
   requests: { cpu: 50m,  memory: 96Mi }
