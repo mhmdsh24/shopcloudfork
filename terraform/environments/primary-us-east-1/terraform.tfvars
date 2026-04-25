@@ -54,7 +54,7 @@ alert_email = ""
 
 enable_domain     = false
 enable_cloudfront = false
-enable_vpn        = true
+enable_vpn        = false
 enable_cloudtrail = false
 vpn_mfa_saml_provider_arn = "arn:aws:iam::781863099565:saml-provider/shopcloud-vpn-mfa"
 
@@ -72,9 +72,9 @@ postgres_parameter_group_family = "postgres15"
 postgres_instance_class         = "db.t3.micro"
 postgres_allocated_storage_gb   = 20
 postgres_storage_type           = "gp2"
-postgres_multi_az               = true
-postgres_backup_retention_days  = 7
-enable_cross_region_replica     = true
+postgres_multi_az               = false
+postgres_backup_retention_days  = 1
+enable_cross_region_replica     = false
 
 ############################################################
 # EKS node group - free-tier constrained defaults.
