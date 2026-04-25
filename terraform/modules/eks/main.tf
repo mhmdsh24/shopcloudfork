@@ -198,7 +198,7 @@ resource "aws_launch_template" "nodes" {
 
 resource "aws_eks_node_group" "workers" {
   cluster_name    = aws_eks_cluster.this.name
-  node_group_name = "${var.cluster_name}-spot-workers"
+  node_group_name = "${var.cluster_name}-${lower(var.node_capacity_type)}-workers"
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.subnet_ids
 
@@ -223,7 +223,7 @@ resource "aws_eks_node_group" "workers" {
   labels = {
     role        = "workload"
     environment = "production"
-    lifecycle   = "spot"
+    lifecycle   = lower(var.node_capacity_type)
   }
 
   depends_on = [

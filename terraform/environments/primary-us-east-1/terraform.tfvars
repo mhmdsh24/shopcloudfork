@@ -3,6 +3,8 @@
 # Every value below is also the module default - this file
 # exists to make the active values explicit and to give you
 # one place to tune before `terraform apply`.
+# Domain-dependent features (ACM/CloudFront/VPN) disabled — requires a registered domain delegated to Route 53.
+# See terraform.tfvars.prod-full-spec for complete production values.
 ############################################################
 
 project_name = "shopcloud"
@@ -42,9 +44,9 @@ alert_email = ""
 # Phase 4 toggles
 ############################################################
 
-enable_domain     = true
-enable_cloudfront = true
-enable_vpn        = true
+enable_domain     = false
+enable_cloudfront = false
+enable_vpn        = false
 enable_cloudtrail = false
 vpn_mfa_saml_provider_arn = "arn:aws:iam::781863099565:saml-provider/shopcloud-vpn-mfa"
 
@@ -58,7 +60,8 @@ postgres_instance_class         = "db.t3.micro"
 postgres_allocated_storage_gb   = 20
 postgres_storage_type           = "gp2"
 postgres_multi_az               = true
-postgres_backup_retention_days  = 7
+# Free-tier limit; production spec is 7 days — see terraform.tfvars.prod-full-spec
+postgres_backup_retention_days  = 1
 enable_cross_region_replica     = true
 
 ############################################################

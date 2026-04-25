@@ -18,13 +18,26 @@ resource "terraform_data" "lambda_build" {
 
   provisioner "local-exec" {
     command = <<-EOT
-      set -euo pipefail
-      rm -rf "${path.module}/build/lambda"
-      mkdir -p "${path.module}/build/lambda"
-      python3 -m pip install -r "${path.module}/lambda/requirements.txt" -t "${path.module}/build/lambda"
-      cp "${path.module}/lambda/handler.py" "${path.module}/build/lambda/handler.py"
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
+
+module_path = pathlib.Path(r"${path.module}")
+build_dir = module_path / "build" / "lambda"
+if build_dir.exists():
+    shutil.rmtree(build_dir)
+build_dir.mkdir(parents=True, exist_ok=True)
+
+subprocess.check_call([
+    sys.executable, "-m", "pip", "install",
+    "-r", str(module_path / "lambda" / "requirements.txt"),
+    "-t", str(build_dir),
+])
+shutil.copy2(module_path / "lambda" / "handler.py", build_dir / "handler.py")
     EOT
-    interpreter = ["/bin/bash", "-c"]
+    interpreter = ["python", "-c"]
   }
 }
 
