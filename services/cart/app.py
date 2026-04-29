@@ -14,9 +14,22 @@ app = FastAPI(title="shopcloud-cart")
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 REDIS_DB = int(os.environ.get("REDIS_DB", "0"))
+REDIS_AUTH = os.environ.get("REDIS_AUTH", "")
 CART_TTL_SECONDS = int(os.environ.get("CART_TTL_SECONDS", "86400"))
 
-r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, decode_responses=True)
+# ElastiCache enforces TLS + auth token. Local/dev Redis has neither.
+# Use the presence of REDIS_AUTH as the signal that we're talking to ElastiCache.
+_use_tls = bool(REDIS_AUTH)
+
+r = redis.Redis(
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    db=REDIS_DB,
+    decode_responses=True,
+    password=REDIS_AUTH or None,
+    ssl=_use_tls,
+    ssl_cert_reqs="none" if _use_tls else None,
+)
 
 
 class CartItem(BaseModel):

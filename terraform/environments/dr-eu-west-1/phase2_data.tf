@@ -21,6 +21,12 @@ data "terraform_remote_state" "primary" {
   }
 }
 
+# AWS-managed RDS key in the DR region. Cross-region replicas of an
+# encrypted source must specify a KMS key in the target region.
+data "aws_kms_key" "rds" {
+  key_id = "alias/aws/rds"
+}
+
 # ----------------------------------------------------------
 # Cross-region RDS read replica.
 #
@@ -45,6 +51,8 @@ module "rds_dr" {
 
   subnet_ids             = module.networking.private_data_subnet_ids
   vpc_security_group_ids = [module.networking.security_group_ids.rds]
+
+  kms_key_id = data.aws_kms_key.rds.arn
 
   # Replicas cannot hold backups or own the DB secret.
   backup_retention_days = 0
@@ -88,6 +96,54 @@ module "redis_dr" {
 resource "random_password" "redis_dr_auth" {
   length  = 32
   special = false
+}
+
+# ----------------------------------------------------------
+# DR-local connection secrets for pods running in eu-west-1.
+# The primary region owns the canonical secrets, which contain
+# primary endpoints. These DR secrets point workloads at the
+# regional read replica and standby Redis during failover or
+# latency-routed operation.
+# ----------------------------------------------------------
+
+resource "aws_secretsmanager_secret" "db_reader" {
+  name                    = "shopcloud/dr/db/reader"
+  description             = "DR Postgres read-replica connection info"
+  recovery_window_in_days = 7
+
+  tags = merge(local.common_tags, { Name = "shopcloud/dr/db/reader" })
+}
+
+resource "aws_secretsmanager_secret_version" "db_reader" {
+  count = var.enable_dr_replica ? 1 : 0
+
+  secret_id = aws_secretsmanager_secret.db_reader.id
+  secret_string = jsonencode({
+    username = "shopcloud_admin"
+    engine   = "postgres"
+    host     = module.rds_dr[0].address
+    port     = module.rds_dr[0].port
+    dbname   = "shopcloud"
+  })
+}
+
+resource "aws_secretsmanager_secret" "redis_dr" {
+  name                    = "shopcloud/dr/redis/auth"
+  description             = "DR Redis endpoint + auth token"
+  recovery_window_in_days = 7
+
+  tags = merge(local.common_tags, { Name = "shopcloud/dr/redis/auth" })
+}
+
+resource "aws_secretsmanager_secret_version" "redis_dr" {
+  secret_id = aws_secretsmanager_secret.redis_dr.id
+  secret_string = jsonencode({
+    auth_token = random_password.redis_dr_auth.result
+    endpoint   = module.redis_dr.primary_endpoint
+    reader     = module.redis_dr.reader_endpoint
+    port       = 6379
+    tls        = true
+  })
 }
 
 # ----------------------------------------------------------

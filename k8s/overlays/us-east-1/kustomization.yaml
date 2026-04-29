@@ -3,7 +3,6 @@ kind: Kustomization
 
 resources:
   - ../../base
-  - ../../addons/keda
 
 commonLabels:
   region: us-east-1

@@ -15,7 +15,7 @@ metadata:
     app: cart
     tier: api
 spec:
-  replicas: 1
+  replicas: 2
   revisionHistoryLimit: 3
   strategy: { type: RollingUpdate, rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } }
   selector: { matchLabels: { app: cart } }
@@ -43,8 +43,6 @@ spec:
           env:
             - { name: LOG_LEVEL, value: info }
             - { name: AWS_REGION, value: us-east-1 }
-            - { name: REDIS_HOST, value: master.shopcloud-primary-redis.rjenu9.use1.cache.amazonaws.com }
-            - { name: REDIS_PORT, value: "6379" }
           envFrom:
             - configMapRef: { name: shopcloud-config, optional: true }
             - secretRef: { name: cart-secrets, optional: true }
@@ -88,7 +86,7 @@ kind: HorizontalPodAutoscaler
 metadata: { name: cart, namespace: shopcloud }
 spec:
   scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: cart }
-  minReplicas: 1
+  minReplicas: 2
   maxReplicas: 4
   metrics:
     - type: Resource

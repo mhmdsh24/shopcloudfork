@@ -1,0 +1,1180 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    environment: production
+    name: external-secrets
+    region: us-east-1
+  name: external-secrets
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    environment: production
+    name: keda
+    region: us-east-1
+  name: keda
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    environment: production
+    name: shopcloud
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+    region: us-east-1
+  name: shopcloud
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-admin
+  labels:
+    environment: production
+    region: us-east-1
+  name: admin
+  namespace: shopcloud
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-auth
+  labels:
+    environment: production
+    region: us-east-1
+  name: auth
+  namespace: shopcloud
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-cart
+  labels:
+    environment: production
+    region: us-east-1
+  name: cart
+  namespace: shopcloud
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-catalog
+  labels:
+    environment: production
+    region: us-east-1
+  name: catalog
+  namespace: shopcloud
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::781863099565:role/shopcloud-primary-irsa-checkout
+  labels:
+    environment: production
+    region: us-east-1
+  name: checkout
+  namespace: shopcloud
+---
+apiVersion: v1
+data:
+  DB_HOST: placeholder
+  DB_NAME: shopcloud
+  DB_PORT: "5432"
+  LOG_LEVEL: info
+  REDIS_HOST: placeholder
+  REDIS_PORT: "6379"
+kind: ConfigMap
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: shopcloud-config
+  namespace: shopcloud
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: admin
+    environment: production
+    region: us-east-1
+  name: admin
+  namespace: shopcloud
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+  selector:
+    app: admin
+    environment: production
+    region: us-east-1
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: auth
+    environment: production
+    region: us-east-1
+  name: auth
+  namespace: shopcloud
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+  selector:
+    app: auth
+    environment: production
+    region: us-east-1
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: cart
+    environment: production
+    region: us-east-1
+  name: cart
+  namespace: shopcloud
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+  selector:
+    app: cart
+    environment: production
+    region: us-east-1
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: catalog
+    environment: production
+    region: us-east-1
+  name: catalog
+  namespace: shopcloud
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+  selector:
+    app: catalog
+    environment: production
+    region: us-east-1
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: checkout
+    environment: production
+    region: us-east-1
+  name: checkout
+  namespace: shopcloud
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+  selector:
+    app: checkout
+    environment: production
+    region: us-east-1
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: admin
+    environment: production
+    region: us-east-1
+    tier: api
+  name: admin
+  namespace: shopcloud
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: admin
+      environment: production
+      region: us-east-1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: admin
+        environment: production
+        region: us-east-1
+        tier: api
+    spec:
+      containers:
+      - env:
+        - name: LOG_LEVEL
+          value: info
+        - name: AWS_REGION
+          value: us-east-1
+        envFrom:
+        - configMapRef:
+            name: shopcloud-config
+            optional: true
+        - secretRef:
+            name: admin-secrets
+            optional: true
+        image: 781863099565.dkr.ecr.us-east-1.amazonaws.com/shopcloud/admin:prod-latest
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        name: admin
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 250m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: admin
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: admin
+            environment: production
+            region: us-east-1
+        maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+      volumes:
+      - emptyDir: {}
+        name: tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: auth
+    environment: production
+    region: us-east-1
+    tier: api
+  name: auth
+  namespace: shopcloud
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: auth
+      environment: production
+      region: us-east-1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: auth
+        environment: production
+        region: us-east-1
+        tier: api
+    spec:
+      containers:
+      - env:
+        - name: LOG_LEVEL
+          value: info
+        - name: AWS_REGION
+          value: us-east-1
+        envFrom:
+        - configMapRef:
+            name: shopcloud-config
+            optional: true
+        - secretRef:
+            name: auth-secrets
+            optional: true
+        image: 781863099565.dkr.ecr.us-east-1.amazonaws.com/shopcloud/auth:prod-latest
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        name: auth
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 250m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: auth
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: auth
+            environment: production
+            region: us-east-1
+        maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+      volumes:
+      - emptyDir: {}
+        name: tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: cart
+    environment: production
+    region: us-east-1
+    tier: api
+  name: cart
+  namespace: shopcloud
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: cart
+      environment: production
+      region: us-east-1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: cart
+        environment: production
+        region: us-east-1
+        tier: api
+    spec:
+      containers:
+      - env:
+        - name: LOG_LEVEL
+          value: info
+        - name: AWS_REGION
+          value: us-east-1
+        envFrom:
+        - configMapRef:
+            name: shopcloud-config
+            optional: true
+        - secretRef:
+            name: cart-secrets
+            optional: true
+        image: 781863099565.dkr.ecr.us-east-1.amazonaws.com/shopcloud/cart:prod-latest
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        name: cart
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 250m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: cart
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: cart
+            environment: production
+            region: us-east-1
+        maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+      volumes:
+      - emptyDir: {}
+        name: tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: catalog
+    environment: production
+    region: us-east-1
+    tier: api
+  name: catalog
+  namespace: shopcloud
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: catalog
+      environment: production
+      region: us-east-1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: catalog
+        environment: production
+        region: us-east-1
+        tier: api
+    spec:
+      automountServiceAccountToken: true
+      containers:
+      - env:
+        - name: LOG_LEVEL
+          value: info
+        - name: AWS_REGION
+          value: us-east-1
+        envFrom:
+        - configMapRef:
+            name: shopcloud-config
+            optional: true
+        - secretRef:
+            name: catalog-secrets
+            optional: true
+        image: 781863099565.dkr.ecr.us-east-1.amazonaws.com/shopcloud/catalog:prod-latest
+        imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 3
+        name: catalog
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 250m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: catalog
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: catalog
+            environment: production
+            region: us-east-1
+        maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+      volumes:
+      - emptyDir: {}
+        name: tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: checkout
+    environment: production
+    region: us-east-1
+    tier: api
+  name: checkout
+  namespace: shopcloud
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: checkout
+      environment: production
+      region: us-east-1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: checkout
+        environment: production
+        region: us-east-1
+        tier: api
+    spec:
+      containers:
+      - env:
+        - name: LOG_LEVEL
+          value: info
+        - name: AWS_REGION
+          value: us-east-1
+        - name: INVOICE_QUEUE_URL
+          value: https://sqs.us-east-1.amazonaws.com/781863099565/shopcloud-primary-invoice-queue
+        envFrom:
+        - configMapRef:
+            name: shopcloud-config
+            optional: true
+        - secretRef:
+            name: checkout-secrets
+            optional: true
+        image: 781863099565.dkr.ecr.us-east-1.amazonaws.com/shopcloud/checkout:prod-latest
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        name: checkout
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 250m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: checkout
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: checkout
+            environment: production
+            region: us-east-1
+        maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+      volumes:
+      - emptyDir: {}
+        name: tmp
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: admin
+  namespace: shopcloud
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: admin
+      environment: production
+      region: us-east-1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: auth
+  namespace: shopcloud
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: auth
+      environment: production
+      region: us-east-1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: cart
+  namespace: shopcloud
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: cart
+      environment: production
+      region: us-east-1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: catalog
+  namespace: shopcloud
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: catalog
+      environment: production
+      region: us-east-1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: checkout
+  namespace: shopcloud
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: checkout
+      environment: production
+      region: us-east-1
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: admin
+  namespace: shopcloud
+spec:
+  maxReplicas: 4
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 70
+        type: Utilization
+    type: Resource
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: admin
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: auth
+  namespace: shopcloud
+spec:
+  maxReplicas: 4
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 70
+        type: Utilization
+    type: Resource
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: cart
+  namespace: shopcloud
+spec:
+  maxReplicas: 4
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 70
+        type: Utilization
+    type: Resource
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cart
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: catalog
+  namespace: shopcloud
+spec:
+  maxReplicas: 4
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 70
+        type: Utilization
+    type: Resource
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: catalog
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: checkout
+  namespace: shopcloud
+spec:
+  maxReplicas: 4
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 70
+        type: Utilization
+    type: Resource
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: checkout
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: aws-secrets
+spec:
+  provider:
+    aws:
+      auth:
+        jwt:
+          serviceAccountRef:
+            name: external-secrets
+            namespace: external-secrets
+      region: us-east-1
+      service: SecretsManager
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: admin-secrets
+  namespace: shopcloud
+spec:
+  data:
+  - remoteRef:
+      key: shopcloud/db/master
+      property: host
+    secretKey: DB_HOST
+  - remoteRef:
+      key: shopcloud/db/master
+      property: username
+    secretKey: DB_USER
+  - remoteRef:
+      key: shopcloud/db/master
+      property: password
+    secretKey: DB_PASSWORD
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: aws-secrets
+  target:
+    creationPolicy: Owner
+    name: admin-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: auth-secrets
+  namespace: shopcloud
+spec:
+  data:
+  - remoteRef:
+      key: shopcloud/cognito/config
+      property: customer_pool_id
+    secretKey: CUSTOMER_POOL_ID
+  - remoteRef:
+      key: shopcloud/cognito/config
+      property: customer_client
+    secretKey: CUSTOMER_CLIENT_ID
+  - remoteRef:
+      key: shopcloud/cognito/config
+      property: admin_pool_id
+    secretKey: ADMIN_POOL_ID
+  - remoteRef:
+      key: shopcloud/cognito/config
+      property: admin_client
+    secretKey: ADMIN_CLIENT_ID
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: aws-secrets
+  target:
+    creationPolicy: Owner
+    name: auth-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: cart-secrets
+  namespace: shopcloud
+spec:
+  data:
+  - remoteRef:
+      key: shopcloud/redis/auth
+      property: endpoint
+    secretKey: REDIS_HOST
+  - remoteRef:
+      key: shopcloud/redis/auth
+      property: port
+    secretKey: REDIS_PORT
+  - remoteRef:
+      key: shopcloud/redis/auth
+      property: auth_token
+    secretKey: REDIS_AUTH
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: aws-secrets
+  target:
+    creationPolicy: Owner
+    name: cart-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: catalog-secrets
+  namespace: shopcloud
+spec:
+  data:
+  - remoteRef:
+      key: shopcloud/db/master
+      property: host
+    secretKey: DB_HOST
+  - remoteRef:
+      key: shopcloud/db/master
+      property: port
+    secretKey: DB_PORT
+  - remoteRef:
+      key: shopcloud/db/master
+      property: dbname
+    secretKey: DB_NAME
+  - remoteRef:
+      key: shopcloud/db/master
+      property: username
+    secretKey: DB_USER
+  - remoteRef:
+      key: shopcloud/db/master
+      property: password
+    secretKey: DB_PASSWORD
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: aws-secrets
+  target:
+    creationPolicy: Owner
+    name: catalog-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  labels:
+    environment: production
+    region: us-east-1
+  name: checkout-secrets
+  namespace: shopcloud
+spec:
+  data:
+  - remoteRef:
+      key: shopcloud/db/master
+      property: host
+    secretKey: DB_HOST
+  - remoteRef:
+      key: shopcloud/db/master
+      property: username
+    secretKey: DB_USER
+  - remoteRef:
+      key: shopcloud/db/master
+      property: password
+    secretKey: DB_PASSWORD
+  - remoteRef:
+      key: shopcloud/redis/auth
+      property: endpoint
+    secretKey: REDIS_HOST
+  - remoteRef:
+      key: shopcloud/redis/auth
+      property: auth_token
+    secretKey: REDIS_AUTH
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: aws-secrets
+  target:
+    creationPolicy: Owner
+    name: checkout-secrets
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    alb.ingress.kubernetes.io/group.name: shopcloud-admin
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/target-type: ip
+  labels:
+    environment: production
+    region: us-east-1
+  name: shopcloud-admin
+  namespace: shopcloud
+spec:
+  ingressClassName: alb
+  rules:
+  - host: admin.internal.shopcloud.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: admin
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - admin.internal.shopcloud.com
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    alb.ingress.kubernetes.io/group.name: shopcloud-public
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/target-type: ip
+  labels:
+    environment: production
+    region: us-east-1
+  name: shopcloud-public
+  namespace: shopcloud
+spec:
+  ingressClassName: alb
+  rules:
+  - host: app.shopcloud.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: catalog
+            port:
+              number: 8080
+        path: /api/catalog
+        pathType: Prefix
+      - backend:
+          service:
+            name: cart
+            port:
+              number: 8080
+        path: /api/cart
+        pathType: Prefix
+      - backend:
+          service:
+            name: checkout
+            port:
+              number: 8080
+        path: /api/checkout
+        pathType: Prefix
+      - backend:
+          service:
+            name: auth
+            port:
+              number: 8080
+        path: /api/auth
+        pathType: Prefix
+      - backend:
+          service:
+            name: catalog
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - app.shopcloud.com

@@ -52,10 +52,10 @@ alert_email = ""
 # hostnames over plain HTTP.
 ############################################################
 
-enable_domain     = false
-enable_cloudfront = false
-enable_vpn        = false
-enable_cloudtrail = false
+enable_domain             = false
+enable_cloudfront         = false
+enable_vpn                = false
+enable_cloudtrail         = false
 vpn_mfa_saml_provider_arn = ""
 
 ############################################################

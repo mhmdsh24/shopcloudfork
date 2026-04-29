@@ -44,10 +44,10 @@ alert_email = ""
 # Phase 4 toggles
 ############################################################
 
-enable_domain     = false
-enable_cloudfront = false
-enable_vpn        = false
-enable_cloudtrail = false
+enable_domain             = false
+enable_cloudfront         = false
+enable_vpn                = false
+enable_cloudtrail         = false
 vpn_mfa_saml_provider_arn = "arn:aws:iam::781863099565:saml-provider/shopcloud-vpn-mfa"
 
 ############################################################
@@ -61,8 +61,8 @@ postgres_allocated_storage_gb   = 20
 postgres_storage_type           = "gp2"
 postgres_multi_az               = true
 # Free-tier limit; production spec is 7 days — see terraform.tfvars.prod-full-spec
-postgres_backup_retention_days  = 1
-enable_cross_region_replica     = true
+postgres_backup_retention_days = 1
+enable_cross_region_replica    = true
 
 ############################################################
 # EKS node group sizing
@@ -73,3 +73,5 @@ eks_node_capacity_type  = "ON_DEMAND"
 eks_node_desired_size   = 2
 eks_node_min_size       = 2
 eks_node_max_size       = 4
+
+dr_invoice_bucket_arn = "arn:aws:s3:::shopcloud-invoices-replica-781863099565"

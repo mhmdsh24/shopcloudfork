@@ -1,0 +1,19 @@
+# helm repo add kedacore https://kedacore.github.io/charts
+# helm upgrade --install keda kedacore/keda -n keda --create-namespace -f keda-dr.yaml
+serviceAccount:
+  create: true
+  name: keda-operator
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/shopcloud-dr-irsa-keda
+resources:
+  operator:
+    requests: { cpu: 50m,  memory: 96Mi }
+    limits:   { cpu: 200m, memory: 256Mi }
+  metricServer:
+    requests: { cpu: 50m,  memory: 96Mi }
+    limits:   { cpu: 200m, memory: 256Mi }
+podIdentity:
+  aws:
+    irsa:
+      enabled: true
+      roleArn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/shopcloud-dr-irsa-keda

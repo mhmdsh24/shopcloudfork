@@ -68,6 +68,11 @@ output "postgres_dr_replica_id" {
   value       = try(module.rds_dr[0].db_instance_id, null)
 }
 
+output "postgres_dr_replica_resource_id" {
+  description = "DBI resource ID for IAM DB auth against the DR read replica. Null when enable_dr_replica = false."
+  value       = try(module.rds_dr[0].db_resource_id, null)
+}
+
 output "redis_dr_endpoint" {
   value = module.redis_dr.primary_endpoint
 }
@@ -80,3 +85,28 @@ output "invoices_replica_bucket_id" {
   value = module.s3_invoices_replica.bucket_id
 }
 
+output "dr_db_secret_arn" {
+  value = aws_secretsmanager_secret.db_reader.arn
+}
+
+output "dr_redis_secret_arn" {
+  value = aws_secretsmanager_secret.redis_dr.arn
+}
+
+# ---------- Phase 3 - DR compute layer ----------
+
+output "eks_cluster_name" {
+  value = try(module.eks_dr[0].cluster_name, null)
+}
+
+output "eks_cluster_endpoint" {
+  value = try(module.eks_dr[0].cluster_endpoint, null)
+}
+
+output "eks_oidc_provider_arn" {
+  value = try(module.eks_dr[0].oidc_provider_arn, null)
+}
+
+output "eks_irsa_role_arns" {
+  value = try(module.eks_dr[0].irsa_role_arns, null)
+}

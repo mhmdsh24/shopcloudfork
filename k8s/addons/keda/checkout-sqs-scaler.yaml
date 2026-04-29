@@ -1,6 +1,7 @@
-# KEDA scales the checkout deployment based on the invoice queue depth.
-# This causes checkout pods to scale out when a backlog forms, improving
-# throughput of OrderCompleted publishers.
+# Optional reference only. Do not include this overlay while Lambda is the
+# SQS consumer; Lambda already scales from the invoice queue event source.
+# If invoice processing is moved into a Kubernetes worker later, point this
+# ScaledObject at that consumer deployment instead of checkout.
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:

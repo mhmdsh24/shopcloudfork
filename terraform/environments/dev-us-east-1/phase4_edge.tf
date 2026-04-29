@@ -38,7 +38,7 @@ module "acm_internal_alb" {
   count  = var.enable_domain ? 1 : 0
 
   name            = "${local.name_prefix}-internal-alb"
-  domain_name     = "admin.${var.domain_name}"
+  domain_name     = "admin.internal.${var.domain_name}"
   route53_zone_id = module.dns[0].public_zone_id
 
   tags = local.common_tags

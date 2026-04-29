@@ -17,7 +17,7 @@ resource "terraform_data" "lambda_build" {
   }
 
   provisioner "local-exec" {
-    command = <<-EOT
+    command     = <<-EOT
 import os
 import pathlib
 import shutil

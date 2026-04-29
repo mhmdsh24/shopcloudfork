@@ -67,6 +67,7 @@ resource "aws_cognito_user_pool_client" "customer_web" {
   enable_propagate_additional_user_context_data = false
 
   explicit_auth_flows = [
+    "ALLOW_USER_PASSWORD_AUTH",
     "ALLOW_USER_SRP_AUTH",
     "ALLOW_REFRESH_TOKEN_AUTH",
   ]
@@ -148,6 +149,7 @@ resource "aws_cognito_user_pool_client" "admin_web" {
   enable_token_revocation       = true
 
   explicit_auth_flows = [
+    "ALLOW_USER_PASSWORD_AUTH",
     "ALLOW_USER_SRP_AUTH",
     "ALLOW_REFRESH_TOKEN_AUTH",
   ]

@@ -1,0 +1,95 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+commonLabels:
+  region: eu-west-1
+  environment: production
+  role: disaster-recovery
+
+patches:
+  - path: patches/dr-service-accounts.yaml
+  - path: patches/dr-images.yaml
+  - target:
+      group: external-secrets.io
+      version: v1
+      kind: ClusterSecretStore
+      name: aws-secrets
+    patch: |-
+      - op: replace
+        path: /spec/provider/aws/region
+        value: eu-west-1
+  - target:
+      group: external-secrets.io
+      version: v1
+      kind: ExternalSecret
+      name: catalog-secrets
+      namespace: shopcloud
+    patch: |-
+      - op: replace
+        path: /spec/data
+        value:
+          - secretKey: DB_HOST
+            remoteRef: { key: shopcloud/dr/db/reader, property: host }
+          - secretKey: DB_PORT
+            remoteRef: { key: shopcloud/dr/db/reader, property: port }
+          - secretKey: DB_NAME
+            remoteRef: { key: shopcloud/dr/db/reader, property: dbname }
+          - secretKey: DB_USER
+            remoteRef: { key: shopcloud/db/master, property: username }
+          - secretKey: DB_PASSWORD
+            remoteRef: { key: shopcloud/db/master, property: password }
+  - target:
+      group: external-secrets.io
+      version: v1
+      kind: ExternalSecret
+      name: cart-secrets
+      namespace: shopcloud
+    patch: |-
+      - op: replace
+        path: /spec/data
+        value:
+          - secretKey: REDIS_HOST
+            remoteRef: { key: shopcloud/dr/redis/auth, property: endpoint }
+          - secretKey: REDIS_PORT
+            remoteRef: { key: shopcloud/dr/redis/auth, property: port }
+          - secretKey: REDIS_AUTH
+            remoteRef: { key: shopcloud/dr/redis/auth, property: auth_token }
+  - target:
+      group: external-secrets.io
+      version: v1
+      kind: ExternalSecret
+      name: checkout-secrets
+      namespace: shopcloud
+    patch: |-
+      - op: replace
+        path: /spec/data
+        value:
+          - secretKey: DB_HOST
+            remoteRef: { key: shopcloud/dr/db/reader, property: host }
+          - secretKey: DB_USER
+            remoteRef: { key: shopcloud/db/master, property: username }
+          - secretKey: DB_PASSWORD
+            remoteRef: { key: shopcloud/db/master, property: password }
+          - secretKey: REDIS_HOST
+            remoteRef: { key: shopcloud/dr/redis/auth, property: endpoint }
+          - secretKey: REDIS_AUTH
+            remoteRef: { key: shopcloud/dr/redis/auth, property: auth_token }
+  - target:
+      group: external-secrets.io
+      version: v1
+      kind: ExternalSecret
+      name: admin-secrets
+      namespace: shopcloud
+    patch: |-
+      - op: replace
+        path: /spec/data
+        value:
+          - secretKey: DB_HOST
+            remoteRef: { key: shopcloud/dr/db/reader, property: host }
+          - secretKey: DB_USER
+            remoteRef: { key: shopcloud/db/master, property: username }
+          - secretKey: DB_PASSWORD
+            remoteRef: { key: shopcloud/db/master, property: password }

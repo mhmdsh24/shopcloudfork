@@ -26,6 +26,9 @@ enable_cloudfront = true
 enable_vpn        = true
 enable_cloudtrail = false
 vpn_mfa_saml_provider_arn = "arn:aws:iam::781863099565:saml-provider/shopcloud-vpn-mfa"
+# Required before applying with enable_vpn = true:
+# vpn_server_certificate_arn      = "arn:aws:acm:..."
+# vpn_client_root_certificate_arn = "arn:aws:acm:..."
 
 postgres_engine_version         = "15.10"
 postgres_parameter_group_family = "postgres15"
