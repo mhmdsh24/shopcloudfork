@@ -68,4 +68,7 @@ jobs:
           cp terraform/modules/sqs-lambda/lambda/handler.py terraform/modules/sqs-lambda/build/lambda/
 
       - run: terraform init -input=false
+      - name: Bootstrap deploy role permissions
+        if: ${{ matrix.env == 'environments/primary-us-east-1' }}
+        run: terraform apply -target=module.iam.aws_iam_role_policy.github_deploy -auto-approve -input=false
       - run: terraform apply -auto-approve -input=false
