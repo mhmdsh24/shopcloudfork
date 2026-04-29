@@ -175,6 +175,7 @@ data "aws_iam_policy_document" "github_deploy" {
       "lambda:Get*",
       "lambda:List*",
       # S3 — GetReplicationConfiguration required for terraform refresh
+      "s3:GetAccelerateConfiguration",
       "s3:GetBucket*",
       "s3:GetEncryptionConfiguration",
       "s3:GetLifecycleConfiguration",
