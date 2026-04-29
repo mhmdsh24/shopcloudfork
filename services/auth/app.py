@@ -27,6 +27,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+
+
 @lru_cache(maxsize=4)
 def _jwks(pool_id: str) -> dict[str, Any]:
     url = f"https://cognito-idp.{region}.amazonaws.com/{pool_id}/.well-known/jwks.json"
@@ -73,6 +78,53 @@ def healthz() -> dict[str, str]:
 @app.get("/ready")
 def ready() -> dict[str, Any]:
     return {"ready": True, "service": "auth", "region": region}
+
+
+@app.post("/api/auth/customer/signup")
+def customer_signup(payload: SignupRequest) -> dict[str, Any]:
+    try:
+        response = cognito.sign_up(
+            ClientId=CUSTOMER_CLIENT_ID,
+            Username=payload.email,
+            Password=payload.password,
+            UserAttributes=[{"Name": "email", "Value": payload.email}],
+        )
+        return {
+            "flow": "customer",
+            "action": "signup",
+            "user_confirmed": response.get("UserConfirmed", False),
+            "user_sub": response.get("UserSub", ""),
+        }
+    except ClientError as exc:
+        code = exc.response.get("Error", {}).get("Code", "ClientError")
+        msg = exc.response.get("Error", {}).get("Message", str(exc))
+        raise HTTPException(
+            status_code=400,
+            detail={"flow": "customer", "error": code, "message": msg},
+        ) from exc
+    except BotoCoreError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={"flow": "customer", "error": "cognito_unavailable", "message": str(exc)},
+        ) from exc
+
+
+@app.post("/api/auth/customer/confirm")
+def customer_confirm(username: str = "", code: str = "") -> dict[str, Any]:
+    try:
+        cognito.confirm_sign_up(
+            ClientId=CUSTOMER_CLIENT_ID,
+            Username=username,
+            ConfirmationCode=code,
+        )
+        return {"flow": "customer", "action": "confirm", "confirmed": True}
+    except ClientError as exc:
+        err_code = exc.response.get("Error", {}).get("Code", "ClientError")
+        msg = exc.response.get("Error", {}).get("Message", str(exc))
+        raise HTTPException(
+            status_code=400,
+            detail={"flow": "customer", "error": err_code, "message": msg},
+        ) from exc
 
 
 @app.post("/api/auth/customer/login")

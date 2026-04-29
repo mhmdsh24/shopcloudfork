@@ -1,5 +1,16 @@
-# Local integration stack: all 5 services + Redis + nginx gateway (http://localhost:8888).
+# Local integration stack: all 5 services + Redis + PostgreSQL + nginx gateway (http://localhost:8888).
 services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: shopcloud
+      POSTGRES_USER: shopcloud_admin
+      POSTGRES_PASSWORD: localdev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
   redis:
     image: redis:7-alpine
     ports:
@@ -7,9 +18,16 @@ services:
 
   catalog:
     build: ./services/catalog
+    depends_on:
+      - postgres
     environment:
       LOG_LEVEL: info
       AWS_REGION: us-east-1
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: shopcloud
+      DB_USER: shopcloud_admin
+      DB_PASSWORD: localdev
 
   cart:
     build: ./services/cart
@@ -23,11 +41,17 @@ services:
 
   checkout:
     build: ./services/checkout
+    depends_on:
+      - postgres
     environment:
-      # Empty: skip SQS locally; set a fake URL to exercise sqs_publish_error handling.
       INVOICE_QUEUE_URL: ""
       LOG_LEVEL: info
       AWS_REGION: us-east-1
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: shopcloud
+      DB_USER: shopcloud_admin
+      DB_PASSWORD: localdev
 
   auth:
     build: ./services/auth
@@ -40,9 +64,18 @@ services:
 
   admin:
     build: ./services/admin
+    depends_on:
+      - postgres
     environment:
       LOG_LEVEL: info
       AWS_REGION: us-east-1
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: shopcloud
+      DB_USER: shopcloud_admin
+      DB_PASSWORD: localdev
+      ADMIN_POOL_ID: us-east-1_mockpooladmin
+      ADMIN_CLIENT_ID: mockadminclient
 
   gateway:
     image: nginx:1.27-alpine
@@ -56,3 +89,6 @@ services:
       - "8888:80"
     volumes:
       - ./deploy/nginx-local-gateway.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  pgdata:

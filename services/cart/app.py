@@ -104,6 +104,15 @@ def get_cart(session_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail=f"Redis unavailable: {exc}") from exc
 
 
+@app.delete("/api/cart/{session_id}")
+def delete_cart(session_id: str) -> dict[str, Any]:
+    try:
+        r.delete(_cart_key(session_id))
+        return {"session_id": session_id, "deleted": True}
+    except redis.RedisError as exc:
+        raise HTTPException(status_code=503, detail=f"Redis unavailable: {exc}") from exc
+
+
 @app.post("/api/cart/{session_id}/items")
 def add_item(session_id: str, item: CartItem) -> dict[str, Any]:
     try:

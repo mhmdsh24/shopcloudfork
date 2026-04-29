@@ -44,8 +44,8 @@ spec:
             - configMapRef: { name: shopcloud-config, optional: true }
             - secretRef: { name: admin-secrets, optional: true }
           resources:
-            requests: { cpu: 50m, memory: 64Mi }
-            limits:   { cpu: 250m, memory: 128Mi }
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { cpu: 250m, memory: 256Mi }
           livenessProbe:
             httpGet: { path: /healthz, port: http }
             initialDelaySeconds: 15
