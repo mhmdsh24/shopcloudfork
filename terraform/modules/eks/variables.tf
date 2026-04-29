@@ -86,6 +86,12 @@ variable "irsa_service_accounts" {
   default = {}
 }
 
+variable "cluster_admin_iam_arns" {
+  description = "List of IAM role/user ARNs to grant EKS cluster-admin access via access entries."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

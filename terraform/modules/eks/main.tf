@@ -361,3 +361,31 @@ resource "aws_iam_role_policy" "irsa" {
   role   = aws_iam_role.irsa[each.key].id
   policy = each.value.policy_json
 }
+
+# ----------------------------------------------------------
+# EKS Access Entries — grants cluster-admin to CI/CD and
+# any operator IAM roles without touching aws-auth ConfigMap.
+# ----------------------------------------------------------
+
+resource "aws_eks_access_entry" "admin" {
+  for_each = toset(var.cluster_admin_iam_arns)
+
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = each.value
+  type          = "STANDARD"
+  tags          = local.tags
+}
+
+resource "aws_eks_access_policy_association" "admin" {
+  for_each = toset(var.cluster_admin_iam_arns)
+
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = each.value
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.admin]
+}
