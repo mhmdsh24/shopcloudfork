@@ -203,6 +203,19 @@ data "aws_iam_policy_document" "github_deploy" {
     ]
     resources = ["*"]
   }
+
+  statement {
+    sid    = "TerraformApplyUpdates"
+    effect = "Allow"
+    actions = [
+      "lambda:UpdateFunctionCode",
+      "rds:ModifyDBParameterGroup",
+    ]
+    resources = [
+      "arn:${data.aws_partition.current.partition}:lambda:*:${data.aws_caller_identity.current.account_id}:function:${var.name_prefix}-invoice-generator",
+      "arn:${data.aws_partition.current.partition}:rds:*:${data.aws_caller_identity.current.account_id}:pg:${var.name_prefix}-postgres",
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "github_deploy" {
