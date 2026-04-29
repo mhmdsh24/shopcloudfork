@@ -134,42 +134,63 @@ data "aws_iam_policy_document" "github_deploy" {
     effect = "Allow"
     actions = [
       "ec2:Describe*",
-      "ecr:DescribeRegistry",
-      "ecr:ListTagsForResource",
+      "ec2:Get*",
+      # ECR — lifecycle policy read required for terraform refresh
+      "ecr:Describe*",
+      "ecr:List*",
+      "ecr:Get*",
       "iam:Get*",
       "iam:List*",
       "rds:Describe*",
       "rds:ListTagsForResource",
       "elasticache:Describe*",
       "elasticache:ListTagsForResource",
+      # Cognito — GetUserPoolMfaConfig required for terraform refresh
       "cognito-idp:Describe*",
       "cognito-idp:List*",
+      "cognito-idp:Get*",
       "cloudfront:Get*",
       "cloudfront:List*",
       "route53:Get*",
       "route53:List*",
       "logs:Describe*",
-      "logs:ListTagsForResource",
+      "logs:List*",
+      "logs:Get*",
       "wafv2:Get*",
       "wafv2:List*",
       "secretsmanager:Describe*",
       "secretsmanager:List*",
+      "secretsmanager:Get*",
+      # KMS — GetKeyRotationStatus required for terraform refresh
       "kms:Describe*",
       "kms:List*",
-      "kms:GetKeyPolicy",
+      "kms:Get*",
       "sqs:Get*",
       "sqs:List*",
       "lambda:Get*",
       "lambda:List*",
+      # S3 — GetReplicationConfiguration required for terraform refresh
       "s3:GetBucket*",
       "s3:GetEncryptionConfiguration",
       "s3:GetLifecycleConfiguration",
+      "s3:GetReplicationConfiguration",
       "s3:ListAllMyBuckets",
+      "s3:GetObject",
+      # SSM — DescribeParameters required for terraform refresh
       "ssm:GetParameter",
       "ssm:GetParameters",
-      "ses:GetIdentityVerificationAttributes",
+      "ssm:GetParametersByPath",
+      "ssm:DescribeParameters",
+      # SES — GetIdentityDkimAttributes required for terraform refresh
+      "ses:GetIdentity*",
+      "ses:ListIdentities",
+      "ses:ListTagsForResource",
       "ecs:Describe*",
       "ecs:List*",
+      # EKS — required for access entry management
+      "eks:Describe*",
+      "eks:List*",
+      "eks:AccessKubernetesApi",
     ]
     resources = ["*"]
   }
