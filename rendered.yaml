@@ -1090,10 +1090,8 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/group.name: shopcloud-admin
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
     alb.ingress.kubernetes.io/scheme: internal
-    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
     alb.ingress.kubernetes.io/target-type: ip
   labels:
     environment: production
@@ -1113,9 +1111,6 @@ spec:
               number: 8080
         path: /
         pathType: Prefix
-  tls:
-  - hosts:
-    - admin.internal.shopcloud.com
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -1124,10 +1119,8 @@ metadata:
     alb.ingress.kubernetes.io/group.name: shopcloud-public
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
     alb.ingress.kubernetes.io/healthcheck-port: traffic-port
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
     alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
     alb.ingress.kubernetes.io/target-type: ip
   labels:
     environment: production
@@ -1137,8 +1130,7 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-  - host: app.shopcloud.com
-    http:
+  - http:
       paths:
       - backend:
           service:
@@ -1175,6 +1167,3 @@ spec:
               number: 8080
         path: /
         pathType: Prefix
-  tls:
-  - hosts:
-    - app.shopcloud.com
