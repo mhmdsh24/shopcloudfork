@@ -79,6 +79,7 @@ locals {
           Effect = "Allow"
           Action = [
             "cognito-idp:AdminInitiateAuth",
+            "cognito-idp:AdminConfirmSignUp",
             "cognito-idp:AdminCreateUser",
             "cognito-idp:AdminGetUser",
             "cognito-idp:AdminSetUserPassword",

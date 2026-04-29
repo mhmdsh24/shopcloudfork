@@ -89,10 +89,15 @@ def customer_signup(payload: SignupRequest) -> dict[str, Any]:
             Password=payload.password,
             UserAttributes=[{"Name": "email", "Value": payload.email}],
         )
+        if not response.get("UserConfirmed", False):
+            cognito.admin_confirm_sign_up(
+                UserPoolId=CUSTOMER_POOL_ID,
+                Username=payload.email,
+            )
         return {
             "flow": "customer",
             "action": "signup",
-            "user_confirmed": response.get("UserConfirmed", False),
+            "user_confirmed": True,
             "user_sub": response.get("UserSub", ""),
         }
     except ClientError as exc:

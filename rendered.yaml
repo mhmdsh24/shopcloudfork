@@ -264,10 +264,10 @@ spec:
         resources:
           limits:
             cpu: 250m
-            memory: 128Mi
+            memory: 256Mi
           requests:
             cpu: 50m
-            memory: 64Mi
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -566,10 +566,10 @@ spec:
         resources:
           limits:
             cpu: 250m
-            memory: 128Mi
+            memory: 256Mi
           requests:
             cpu: 50m
-            memory: 64Mi
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -667,10 +667,10 @@ spec:
         resources:
           limits:
             cpu: 250m
-            memory: 128Mi
+            memory: 256Mi
           requests:
             cpu: 50m
-            memory: 64Mi
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -936,6 +936,14 @@ spec:
       key: shopcloud/db/master
       property: password
     secretKey: DB_PASSWORD
+  - remoteRef:
+      key: shopcloud/cognito/config
+      property: admin_pool_id
+    secretKey: ADMIN_POOL_ID
+  - remoteRef:
+      key: shopcloud/cognito/config
+      property: admin_client
+    secretKey: ADMIN_CLIENT_ID
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
@@ -1060,6 +1068,14 @@ spec:
       key: shopcloud/db/master
       property: host
     secretKey: DB_HOST
+  - remoteRef:
+      key: shopcloud/db/master
+      property: port
+    secretKey: DB_PORT
+  - remoteRef:
+      key: shopcloud/db/master
+      property: dbname
+    secretKey: DB_NAME
   - remoteRef:
       key: shopcloud/db/master
       property: username

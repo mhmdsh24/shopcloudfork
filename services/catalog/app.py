@@ -527,7 +527,7 @@ async function doSignup(){
     const r=await fetch('/api/auth/customer/signup',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({email:email,password:pass})});
     if(!r.ok){const e=await r.json();$('authAlert').innerHTML='<div class="alert alert-err">'+(e.detail?.message||e.detail||'Signup failed')+'</div>';return;}
-    $('authAlert').innerHTML='<div class="alert alert-ok">Account created! Check your email for verification, then sign in.</div>';
+    $('authAlert').innerHTML='<div class="alert alert-ok">Account created! You can sign in now.</div>';
     setTimeout(showLogin,3000);
   }catch(e){$('authAlert').innerHTML='<div class="alert alert-err">Network error</div>';}
 }

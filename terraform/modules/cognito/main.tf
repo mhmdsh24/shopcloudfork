@@ -17,15 +17,7 @@ resource "aws_cognito_user_pool" "customers" {
   name = "${var.name_prefix}-customers"
 
   username_attributes      = ["email"]
-  auto_verified_attributes = ["email"]
-
-  password_policy {
-    minimum_length    = 12
-    require_lowercase = true
-    require_uppercase = true
-    require_numbers   = true
-    require_symbols   = true
-  }
+  auto_verified_attributes = []
 
   mfa_configuration = "OPTIONAL"
 
@@ -35,19 +27,13 @@ resource "aws_cognito_user_pool" "customers" {
 
   account_recovery_setting {
     recovery_mechanism {
-      name     = "verified_email"
+      name     = "admin_only"
       priority = 1
     }
   }
 
   admin_create_user_config {
     allow_admin_create_user_only = false
-  }
-
-  verification_message_template {
-    default_email_option = "CONFIRM_WITH_CODE"
-    email_subject        = "Verify your ShopCloud account"
-    email_message        = "Your ShopCloud verification code is {####}"
   }
 
   # Use Cognito default email (free, 50/day) - swap to SES for production.
@@ -97,15 +83,7 @@ resource "aws_cognito_user_pool" "admins" {
   name = "${var.name_prefix}-admins"
 
   username_attributes      = ["email"]
-  auto_verified_attributes = ["email"]
-
-  password_policy {
-    minimum_length    = 16
-    require_lowercase = true
-    require_uppercase = true
-    require_numbers   = true
-    require_symbols   = true
-  }
+  auto_verified_attributes = []
 
   mfa_configuration = "ON"
 
@@ -130,7 +108,7 @@ resource "aws_cognito_user_pool" "admins" {
 
   account_recovery_setting {
     recovery_mechanism {
-      name     = "verified_email"
+      name     = "admin_only"
       priority = 1
     }
   }
