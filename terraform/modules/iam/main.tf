@@ -208,10 +208,13 @@ data "aws_iam_policy_document" "github_deploy" {
     sid    = "TerraformApplyUpdates"
     effect = "Allow"
     actions = [
+      "iam:PutRolePolicy",
       "lambda:UpdateFunctionCode",
       "rds:ModifyDBParameterGroup",
     ]
     resources = [
+      "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:role/shopcloud-primary-irsa-*",
+      "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:role/shopcloud-dr-irsa-*",
       "arn:${data.aws_partition.current.partition}:lambda:*:${data.aws_caller_identity.current.account_id}:function:${var.name_prefix}-invoice-generator",
       "arn:${data.aws_partition.current.partition}:rds:*:${data.aws_caller_identity.current.account_id}:pg:${var.name_prefix}-postgres",
     ]
