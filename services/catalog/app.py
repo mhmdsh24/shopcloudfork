@@ -508,17 +508,37 @@ function showSignup(){
 
 async function doLogin(){
   const email=$('lEmail').value, pass=$('lPass').value;
+  const alertEl=$('authAlert');
+  const setErr=(msg)=>{if(alertEl)alertEl.innerHTML='<div class="alert alert-err">'+escH(msg)+'</div>'};
   try{
     const r=await fetch('/api/auth/customer/login',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({username:email,password:pass})});
-    if(!r.ok){const e=await r.json();$('authAlert').innerHTML='<div class="alert alert-err">'+(e.detail?.message||e.detail||'Login failed')+'</div>';return;}
-    const d=await r.json();
-    AUTH=d.tokens?.IdToken||d.tokens?.AccessToken||'';
+    let d;
+    try{d=await r.json();}catch(_){setErr('Invalid response from server');return;}
+    if(!r.ok){
+      const detail=d&&d.detail;
+      const msg=(detail&&typeof detail==='object'&&detail.message)||(typeof detail==='string'?detail:JSON.stringify(detail||d))||'Login failed';
+      setErr(msg);return;
+    }
+    const tok=d.tokens&&(d.tokens.IdToken||d.tokens.AccessToken);
+    if(!tok){setErr('Login succeeded but no token in response');return;}
+    AUTH=tok;
     USER_EMAIL=email;
-    localStorage.setItem('sc_token',AUTH);
-    localStorage.setItem('sc_email',USER_EMAIL);
+    try{
+      localStorage.setItem('sc_token',AUTH);
+      localStorage.setItem('sc_email',USER_EMAIL);
+    }catch(se){
+      console.error('login storage',se);
+      setErr(se.name==='SecurityError'||se.name==='QuotaExceededError'
+        ?'Could not save your session (browser blocked storage). Try a non-private window or allow site data.'
+        :'Could not save session: '+se.message);
+      return;
+    }
     updateAuthUI(); closeModal();
-  }catch(e){$('authAlert').innerHTML='<div class="alert alert-err">Network error</div>';}
+  }catch(e){
+    console.error('login',e);
+    setErr(e&&e.message?e.message:'Network error');
+  }
 }
 
 async function doSignup(){
