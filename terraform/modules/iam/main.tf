@@ -216,6 +216,15 @@ data "aws_iam_policy_document" "github_deploy" {
       "arn:${data.aws_partition.current.partition}:rds:*:${data.aws_caller_identity.current.account_id}:pg:${var.name_prefix}-postgres",
     ]
   }
+
+  statement {
+    sid    = "CloudFrontApplyUpdates"
+    effect = "Allow"
+    actions = [
+      "cloudfront:UpdateDistribution",
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "github_deploy" {
