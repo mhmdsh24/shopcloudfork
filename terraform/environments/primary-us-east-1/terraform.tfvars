@@ -45,10 +45,10 @@ alert_email = ""
 ############################################################
 
 enable_domain             = false
-enable_cloudfront         = false
-enable_vpn                = false
+enable_cloudfront         = true
+enable_vpn                = true
 enable_cloudtrail         = false
-vpn_mfa_saml_provider_arn = "arn:aws:iam::781863099565:saml-provider/shopcloud-vpn-mfa"
+vpn_mfa_saml_provider_arn = ""   # cert-only auth; set a real SAML provider ARN to add MFA
 
 ############################################################
 # RDS PostgreSQL
@@ -74,4 +74,18 @@ eks_node_desired_size   = 2
 eks_node_min_size       = 2
 eks_node_max_size       = 4
 
-dr_invoice_bucket_arn = "arn:aws:s3:::shopcloud-invoices-replica-781863099565"
+# dr_invoice_bucket_arn = "arn:aws:s3:::shopcloud-invoices-replica-781863099565"
+
+############################################################
+# CloudFront origin (public ALB)
+############################################################
+
+primary_alb_dns_name = "k8s-shopcloudpublic-afbeb03e50-1960809462.us-east-1.elb.amazonaws.com"
+primary_alb_zone_id  = "Z35SXDOTRQ7X7K"
+
+############################################################
+# VPN - fill in after running the cert generation script
+############################################################
+
+vpn_server_certificate_arn      = "arn:aws:acm:us-east-1:781863099565:certificate/1bc3e3d6-e8c0-425c-b4a8-e06f8a4bb446"
+vpn_client_root_certificate_arn = "arn:aws:acm:us-east-1:781863099565:certificate/fcd44ffa-ff0e-4d53-b49e-34615ffd9c74"

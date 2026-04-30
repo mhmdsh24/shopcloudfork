@@ -115,6 +115,7 @@ module "vpn" {
   name_prefix = local.name_prefix
   client_cidr = var.vpn_client_cidr
 
+  vpc_id                 = module.networking.vpc_id
   subnet_id              = module.networking.private_app_subnet_ids[0]
   vpc_security_group_ids = [module.networking.security_group_ids.vpn]
   authorized_cidrs = [

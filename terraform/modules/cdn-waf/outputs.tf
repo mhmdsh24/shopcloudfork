@@ -15,5 +15,5 @@ output "web_acl_arn" {
 }
 
 output "certificate_arn" {
-  value = aws_acm_certificate_validation.cloudfront.certificate_arn
+  value = length(aws_acm_certificate_validation.cloudfront) > 0 ? aws_acm_certificate_validation.cloudfront[0].certificate_arn : null
 }

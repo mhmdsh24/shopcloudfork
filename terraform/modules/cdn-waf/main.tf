@@ -1,26 +1,28 @@
 ############################################################
-# CloudFront + ACM + WAF v2 (CLOUDFRONT scope in us-east-1).
+# CloudFront + WAF v2 (CLOUDFRONT scope in us-east-1).
+#
+# Works in two modes:
+#   - Without domain (route53_zone_id = ""): uses the default
+#     *.cloudfront.net hostname + CloudFront's own TLS cert.
+#     No ACM or Route 53 required.
+#   - With domain (route53_zone_id set): adds a custom alias
+#     (app.<domain>), an ACM cert, and writes DNS validation
+#     records into Route 53.
 ############################################################
 
 locals {
-  tags       = merge(var.tags, { Module = "cdn-waf" })
-  cf_aliases = ["app.${var.domain_name}"]
-  acm_validation_records = [
-    for dvo in aws_acm_certificate.cloudfront.domain_validation_options :
-    {
-      name   = dvo.resource_record_name
-      type   = dvo.resource_record_type
-      record = dvo.resource_record_value
-    }
-  ]
+  tags             = merge(var.tags, { Module = "cdn-waf" })
+  use_custom_domain = var.route53_zone_id != ""
+  cf_aliases        = local.use_custom_domain ? ["app.${var.domain_name}"] : []
 }
 
 # ----------------------------------------------------------
-# ACM certificate for CloudFront (must be in us-east-1)
+# ACM certificate for CloudFront (only when custom domain)
 # ----------------------------------------------------------
 
 resource "aws_acm_certificate" "cloudfront" {
   provider = aws.us_east_1
+  count    = local.use_custom_domain ? 1 : 0
 
   domain_name               = "app.${var.domain_name}"
   subject_alternative_names = [var.domain_name]
@@ -34,14 +36,14 @@ resource "aws_acm_certificate" "cloudfront" {
 }
 
 resource "aws_route53_record" "cert_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.cloudfront.domain_validation_options :
+  for_each = local.use_custom_domain ? {
+    for dvo in aws_acm_certificate.cloudfront[0].domain_validation_options :
     dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
       type   = dvo.resource_record_type
     }
-  }
+  } : {}
 
   zone_id         = var.route53_zone_id
   name            = each.value.name
@@ -53,8 +55,9 @@ resource "aws_route53_record" "cert_validation" {
 
 resource "aws_acm_certificate_validation" "cloudfront" {
   provider = aws.us_east_1
+  count    = local.use_custom_domain ? 1 : 0
 
-  certificate_arn         = aws_acm_certificate.cloudfront.arn
+  certificate_arn         = aws_acm_certificate.cloudfront[0].arn
   validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
 }
 
@@ -178,7 +181,7 @@ resource "aws_cloudfront_distribution" "this" {
     custom_origin_config {
       http_port              = 80
       https_port             = 443
-      origin_protocol_policy = "https-only"
+      origin_protocol_policy = "http-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
   }
@@ -196,9 +199,12 @@ resource "aws_cloudfront_distribution" "this" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.cloudfront.certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+    # Custom domain: use ACM cert with SNI.
+    # No domain: use CloudFront's own *.cloudfront.net cert (free, no config needed).
+    acm_certificate_arn            = local.use_custom_domain ? aws_acm_certificate_validation.cloudfront[0].certificate_arn : null
+    ssl_support_method             = local.use_custom_domain ? "sni-only" : null
+    minimum_protocol_version       = local.use_custom_domain ? "TLSv1.2_2021" : "TLSv1.2_2021"
+    cloudfront_default_certificate = !local.use_custom_domain
   }
 
   restrictions {

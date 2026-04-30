@@ -25,7 +25,7 @@ resource "aws_ec2_client_vpn_endpoint" "this" {
   split_tunnel           = true
   dns_servers            = var.dns_servers
   transport_protocol     = "udp"
-  vpc_id                 = null
+  vpc_id                 = var.vpc_id
   vpn_port               = 443
   security_group_ids     = var.vpc_security_group_ids
   session_timeout_hours  = 12

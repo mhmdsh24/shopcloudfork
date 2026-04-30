@@ -14,8 +14,9 @@ variable "alb_dns_name" {
 }
 
 variable "route53_zone_id" {
-  description = "Route 53 public zone ID to place ACM validation records in."
+  description = "Route 53 public zone ID to place ACM validation records in. Leave empty to use the default *.cloudfront.net hostname without a custom domain or ACM cert."
   type        = string
+  default     = ""
 }
 
 variable "rate_limit_per_5min" {

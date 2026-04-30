@@ -43,6 +43,7 @@ Thumbs.db
 *.crt
 *.key
 !**/*.example.*
+vpn-pki/
 .env
 .env.*
 !.env.example

@@ -368,7 +368,7 @@ resource "aws_iam_role_policy" "irsa" {
 # ----------------------------------------------------------
 
 resource "aws_eks_access_entry" "admin" {
-  for_each = toset(var.cluster_admin_iam_arns)
+  for_each = { for idx, arn in var.cluster_admin_iam_arns : tostring(idx) => arn }
 
   cluster_name  = aws_eks_cluster.this.name
   principal_arn = each.value
@@ -377,7 +377,7 @@ resource "aws_eks_access_entry" "admin" {
 }
 
 resource "aws_eks_access_policy_association" "admin" {
-  for_each = toset(var.cluster_admin_iam_arns)
+  for_each = { for idx, arn in var.cluster_admin_iam_arns : tostring(idx) => arn }
 
   cluster_name  = aws_eks_cluster.this.name
   principal_arn = each.value

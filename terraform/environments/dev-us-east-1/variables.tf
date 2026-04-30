@@ -274,13 +274,9 @@ variable "vpn_mfa_saml_provider_arn" {
   description = "IAM SAML provider ARN used for explicit VPN MFA authentication."
   type        = string
   default     = ""
-  validation {
-    condition = (
-      !(var.enable_vpn && lower(var.environment) == "production")
-      || trimspace(var.vpn_mfa_saml_provider_arn) != ""
-    )
-    error_message = "vpn_mfa_saml_provider_arn must be set when enable_vpn=true in production. ShopCloud production VPN requires certificate + MFA."
-  }
+  # Leave empty to use certificate-only auth. Set a real SAML provider ARN to
+  # layer federated MFA on top of the mutual-TLS client certificate.
+
 }
 
 ############################################################

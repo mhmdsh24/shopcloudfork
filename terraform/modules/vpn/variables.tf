@@ -9,6 +9,11 @@ variable "client_cidr" {
   default     = "10.0.100.0/22"
 }
 
+variable "vpc_id" {
+  description = "VPC ID to attach the Client VPN endpoint to (required when security_group_ids are specified)."
+  type        = string
+}
+
 variable "subnet_id" {
   description = "Single private subnet to associate the VPN with (cost-optimized)."
   type        = string

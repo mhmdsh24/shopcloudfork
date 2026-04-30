@@ -16,7 +16,10 @@
 ############################################################
 
 locals {
-  create_cloudfront = var.enable_cloudfront && var.enable_domain && trimspace(var.primary_alb_dns_name) != ""
+  # CloudFront only needs the public ALB DNS name as an origin.
+  # enable_domain is NOT required - when false the distribution uses its
+  # default *.cloudfront.net hostname with CloudFront's own TLS cert.
+  create_cloudfront = var.enable_cloudfront && trimspace(var.primary_alb_dns_name) != ""
 }
 
 ############################################################
@@ -99,10 +102,14 @@ module "cdn_waf" {
     aws.us_east_1 = aws.us_east_1
   }
 
-  name_prefix     = local.name_prefix
-  domain_name     = var.domain_name
-  alb_dns_name    = var.primary_alb_dns_name
-  route53_zone_id = module.dns[0].public_zone_id
+  name_prefix  = local.name_prefix
+  domain_name  = var.domain_name
+  alb_dns_name = var.primary_alb_dns_name
+
+  # When enable_domain = true the distribution gets a custom alias + ACM cert.
+  # When enable_domain = false it uses the *.cloudfront.net URL + CloudFront's
+  # own TLS cert - no Route 53 or ACM needed.
+  route53_zone_id = var.enable_domain ? module.dns[0].public_zone_id : ""
 
   tags = local.common_tags
 }
@@ -119,6 +126,7 @@ module "vpn" {
   name_prefix = local.name_prefix
   client_cidr = var.vpn_client_cidr
 
+  vpc_id                 = module.networking.vpc_id
   subnet_id              = module.networking.private_app_subnet_ids[0]
   vpc_security_group_ids = [module.networking.security_group_ids.vpn]
   authorized_cidrs = [
