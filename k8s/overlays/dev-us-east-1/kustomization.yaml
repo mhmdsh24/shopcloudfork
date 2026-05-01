@@ -10,3 +10,5 @@ commonLabels:
 
 patches:
   - path: patches/dev-scale.yaml
+  - path: patches/dev-service-accounts.yaml
+  - path: patches/dev-images.yaml

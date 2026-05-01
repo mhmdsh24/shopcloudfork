@@ -200,6 +200,12 @@ variable "domain_name" {
   default     = "shopcloud.com"
 }
 
+variable "route53_public_zone_id" {
+  description = "Existing public Route 53 hosted zone ID for domain_name. Required for CloudFront custom aliases."
+  type        = string
+  default     = ""
+}
+
 variable "invoice_sender_email" {
   description = "Verified SES email identity used as the From address for invoice emails. Leave empty to use invoices@domain_name once the domain is verified."
   type        = string

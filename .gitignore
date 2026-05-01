@@ -1,9 +1,12 @@
 # Terraform
 **/.terraform/
+.tools/
 terraform.tfstate
 *.tfstate
 *.tfstate.backup
 *.tfstate.*
+tfplan
+tfplan-*
 *.tfplan
 *.auto.tfvars
 *.auto.tfvars.json
@@ -16,10 +19,13 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-# Don't commit the Lambda zip artifact
+# Lambda/package artifacts
 terraform/modules/sqs-lambda/build/
 
-# Node / Python / build artifacts (future phases)
+# Rendered deployment artifacts
+rendered-*.yaml
+
+# Node / Python / build artifacts
 node_modules/
 __pycache__/
 *.pyc
@@ -37,7 +43,7 @@ build/
 .DS_Store
 Thumbs.db
 
-# Secrets — never commit
+# Secrets - never commit
 *.pem
 *.ovpn
 *.crt
@@ -47,5 +53,3 @@ vpn-pki/
 .env
 .env.*
 !.env.example
-rendered-us-east-1.yaml 
-terraform/global/.terraform.lock.hcl 

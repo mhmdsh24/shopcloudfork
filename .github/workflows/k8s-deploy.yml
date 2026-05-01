@@ -15,6 +15,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
 env:
   AWS_REGION: us-east-1
   CLUSTER: shopcloud-primary
@@ -27,7 +31,18 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     environment: production
     steps:
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "sha=${{ inputs.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.sha }}
 
       - uses: aws-actions/configure-aws-credentials@v4.1.0
         with:
@@ -37,35 +52,31 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name "$CLUSTER" --region "$AWS_REGION"
 
-      - name: Resolve image tag
-        id: tag
-        run: |
-          if [ -n "${{ inputs.sha }}" ]; then
-            echo "sha=${{ inputs.sha }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Render and apply manifests
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          TAG: ${{ steps.tag.outputs.sha }}
         run: |
           set -euo pipefail
           kubectl kustomize k8s/overlays/us-east-1 > rendered-us-east-1.yaml
-          python3 - "${{ secrets.AWS_ACCOUNT_ID }}" <<'PY'
+          python3 - "$AWS_ACCOUNT_ID" "$TAG" <<'PY'
           from pathlib import Path
           import sys
           account_id = sys.argv[1]
+          tag = sys.argv[2]
           p = Path("rendered-us-east-1.yaml")
-          p.write_text(p.read_text().replace("${AWS_ACCOUNT_ID}", account_id))
+          text = p.read_text()
+          text = text.replace("${AWS_ACCOUNT_ID}", account_id)
+          text = text.replace(":prod-latest", f":{tag}")
+          text = text.replace(":dev-latest", f":{tag}")
+          p.write_text(text)
           PY
           kubectl apply -f rendered-us-east-1.yaml
 
       - name: Rollout each service
         run: |
           set -euo pipefail
-          TAG="${{ steps.tag.outputs.sha }}"
-          REGISTRY="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com"
           for SVC in catalog cart checkout auth admin; do
-            echo "Deploying $SVC -> $TAG"
-            kubectl -n "$NAMESPACE" set image "deployment/$SVC" "$SVC=$REGISTRY/shopcloud/$SVC:$TAG"
+            echo "Waiting for $SVC rollout"
             kubectl -n "$NAMESPACE" rollout status "deployment/$SVC" --timeout=300s
           done

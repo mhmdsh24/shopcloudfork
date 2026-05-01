@@ -12,6 +12,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: docker-prod-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   AWS_REGION: us-east-1
   TARGET_ENV: prod
@@ -27,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: aws-actions/configure-aws-credentials@v4.1.0
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/shopcloud-primary-github-deploy
           aws-region: ${{ env.AWS_REGION }}
@@ -37,13 +41,35 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build & push
+      - name: Build image locally
         uses: docker/build-push-action@v6
         with:
           context: services/${{ matrix.service }}
-          push: true
+          load: true
+          push: false
           tags: |
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud/${{ matrix.service }}:${{ github.sha }}
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud/${{ matrix.service }}:${{ env.TARGET_ENV }}-latest
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud/${{ matrix.service }}:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+      - name: Push image
+        env:
+          REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+          SERVICE: ${{ matrix.service }}
+          TAG: ${{ github.sha }}
+          TARGET_ENV: ${{ env.TARGET_ENV }}
+        run: |
+          set -euo pipefail
+          docker push "$REGISTRY/shopcloud/$SERVICE:$TAG"
+          docker push "$REGISTRY/shopcloud/$SERVICE:$TARGET_ENV-latest"

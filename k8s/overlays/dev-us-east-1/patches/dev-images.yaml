@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog
+  namespace: shopcloud
+spec:
+  template:
+    spec:
+      containers:
+        - name: catalog
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud/catalog:dev-latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart
+  namespace: shopcloud
+spec:
+  template:
+    spec:
+      containers:
+        - name: cart
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud/cart:dev-latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+  namespace: shopcloud
+spec:
+  template:
+    spec:
+      containers:
+        - name: checkout
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud/checkout:dev-latest
+          env:
+            - { name: LOG_LEVEL, value: info }
+            - { name: AWS_REGION, value: us-east-1 }
+            - { name: INVOICE_QUEUE_URL, value: "https://sqs.us-east-1.amazonaws.com/${AWS_ACCOUNT_ID}/shopcloud-dev-invoice-queue" }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: shopcloud
+spec:
+  template:
+    spec:
+      containers:
+        - name: auth
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud/auth:dev-latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin
+  namespace: shopcloud
+spec:
+  template:
+    spec:
+      containers:
+        - name: admin
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud/admin:dev-latest

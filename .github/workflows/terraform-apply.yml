@@ -36,19 +36,19 @@ jobs:
       max-parallel: 1
       fail-fast: true
       matrix:
-        env:
-          - environments/primary-us-east-1
-          - environments/dr-eu-west-1
-          - global
+        include:
+          - id: primary-us-east-1
+            env: environments/primary-us-east-1
+          - id: dr-eu-west-1
+            env: environments/dr-eu-west-1
+          - id: global
+            env: global
     defaults:
       run:
         working-directory: terraform/${{ matrix.env }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.only == 'all' || inputs.only == matrix.env }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Skip if input selects a different env
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.only != 'all' && inputs.only != matrix.env }}
-        run: echo "Skipping ${{ matrix.env }}" && exit 0
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:

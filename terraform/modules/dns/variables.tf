@@ -3,6 +3,12 @@ variable "domain_name" {
   type        = string
 }
 
+variable "public_zone_id" {
+  description = "Existing Route 53 public hosted zone ID for domain_name. Leave empty to create a new public hosted zone."
+  type        = string
+  default     = ""
+}
+
 variable "vpc_id" {
   description = "VPC ID that the private hosted zone should be associated with."
   type        = string

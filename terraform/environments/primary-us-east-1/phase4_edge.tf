@@ -62,8 +62,9 @@ module "dns" {
   source = "../../modules/dns"
   count  = var.enable_domain ? 1 : 0
 
-  domain_name = var.domain_name
-  vpc_id      = module.networking.vpc_id
+  domain_name    = var.domain_name
+  public_zone_id = var.route53_public_zone_id
+  vpc_id         = module.networking.vpc_id
 
   # Fill these in once the ALBs exist (after kubectl apply) and
   # re-run terraform apply to publish the latency records.
@@ -109,7 +110,7 @@ module "cdn_waf" {
   # When enable_domain = true the distribution gets a custom alias + ACM cert.
   # When enable_domain = false it uses the *.cloudfront.net URL + CloudFront's
   # own TLS cert - no Route 53 or ACM needed.
-  route53_zone_id = var.enable_domain ? module.dns[0].public_zone_id : ""
+  route53_zone_id = var.enable_domain ? var.route53_public_zone_id : ""
 
   tags = local.common_tags
 }

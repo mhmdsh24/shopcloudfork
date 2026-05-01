@@ -10,6 +10,7 @@ permissions:
   id-token: write
   contents: read
   pull-requests: write
+  issues: write
 
 concurrency:
   group: terraform-plan-${{ github.ref }}
@@ -22,10 +23,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        env:
-          - environments/primary-us-east-1
-          - environments/dr-eu-west-1
-          - global
+        include:
+          - id: primary-us-east-1
+            env: environments/primary-us-east-1
+          - id: dr-eu-west-1
+            env: environments/dr-eu-west-1
+          - id: global
+            env: global
     defaults:
       run:
         working-directory: terraform/${{ matrix.env }}
@@ -41,6 +45,9 @@ jobs:
         with:
           terraform_version: 1.14.5
 
+      - run: terraform fmt -check -recursive
+        working-directory: terraform
+
       - name: Build invoice lambda package inputs
         working-directory: .
         run: |
@@ -53,16 +60,41 @@ jobs:
             --only-binary=:all:
           cp terraform/modules/sqs-lambda/lambda/handler.py terraform/modules/sqs-lambda/build/lambda/
 
-      - run: terraform fmt -check -recursive
-        working-directory: terraform
-
       - run: terraform init -input=false
       - run: terraform validate
-      - run: terraform plan -input=false -no-color -out=tfplan
+      - name: Terraform plan
         id: plan
+        run: |
+          set -euo pipefail
+          terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+
+      - name: Post plan to PR
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        env:
+          TF_ENV: ${{ matrix.id }}
+          PLAN_FILE: terraform/${{ matrix.env }}/plan.txt
+        with:
+          script: |
+            const fs = require('fs');
+            const envName = process.env.TF_ENV;
+            const file = process.env.PLAN_FILE;
+            const bodyText = fs.existsSync(file)
+              ? fs.readFileSync(file, 'utf8')
+              : 'Plan output was not written. Check the workflow logs.';
+            const trimmed = bodyText.length > 60000
+              ? bodyText.slice(bodyText.length - 60000)
+              : bodyText;
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `#### Terraform plan: ${envName}\n\n\`\`\`\n${trimmed}\n\`\`\`\n\nTriggered by @${context.actor}.`
+            });
 
       - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
         with:
-          name: tfplan-${{ matrix.env }}
+          name: tfplan-${{ matrix.id }}
           path: terraform/${{ matrix.env }}/tfplan
           retention-days: 7

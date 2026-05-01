@@ -3,7 +3,7 @@
 # Every value below is also the module default - this file
 # exists to make the active values explicit and to give you
 # one place to tune before `terraform apply`.
-# Domain-dependent features (ACM/CloudFront/VPN) disabled — requires a registered domain delegated to Route 53.
+# Domain-dependent features (ACM/CloudFront/VPN) enabled for shopcloud-503q.click.
 # See terraform.tfvars.prod-full-spec for complete production values.
 ############################################################
 
@@ -37,15 +37,16 @@ github_repo = "shopcloud"
 # Domain + email.
 ############################################################
 
-domain_name          = "shopcloud.com"
-invoice_sender_email = "shopcloud.eece503q@gmail.com"
-alert_email          = ""
+domain_name            = "shopcloud-503q.click"
+route53_public_zone_id = "Z03870742KSFCPI8PJWDC"
+invoice_sender_email   = "shopcloud.eece503q@gmail.com"
+alert_email            = ""
 
 ############################################################
 # Phase 4 toggles
 ############################################################
 
-enable_domain             = false
+enable_domain             = true
 enable_cloudfront         = true
 enable_vpn                = true
 enable_cloudtrail         = false
@@ -83,6 +84,12 @@ eks_node_max_size       = 4
 
 primary_alb_dns_name = "k8s-shopcloudpublic-afbeb03e50-1960809462.us-east-1.elb.amazonaws.com"
 primary_alb_zone_id  = "Z35SXDOTRQ7X7K"
+
+internal_alb_dns_name = "internal-k8s-shopcloudadmin-0a74081895-332932850.us-east-1.elb.amazonaws.com"
+internal_alb_zone_id  = "Z35SXDOTRQ7X7K"
+
+dr_alb_dns_name = "k8s-shopcloudpublic-dca989f5cd-486176209.eu-west-1.elb.amazonaws.com"
+dr_alb_zone_id  = "Z32O12XQLNTSW2"
 
 ############################################################
 # VPN - fill in after running the cert generation script

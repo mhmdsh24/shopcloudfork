@@ -1,81 +1,364 @@
 # ShopCloud
 
-ShopCloud is an AWS EKS-based e-commerce stack with exactly five services:
-`catalog`, `cart`, `checkout`, `auth`, `admin`.
+ShopCloud is an AWS-hosted e-commerce platform built on EKS. The application is split into five services:
 
-## Current Architecture
+- `catalog`: product browsing, search, categories, and the storefront page
+- `cart`: low-latency shopping cart/session state
+- `checkout`: order creation and invoice event publishing
+- `auth`: customer/admin authentication through Amazon Cognito
+- `admin`: private administrative interface
 
-- Primary environment: `terraform/environments/primary-us-east-1`
-- Development environment: `terraform/environments/dev-us-east-1`
-- Kubernetes overlays:
-  - production: `k8s/overlays/us-east-1`
-  - development: `k8s/overlays/dev-us-east-1`
-- Invoice pipeline: `checkout -> SQS -> Lambda -> S3 + SES`
-- Edge path: Route 53 latency records + CloudFront + WAF + Shield Standard
-- Admin path: Client VPN + internal ALB ingress
-- Data layer: RDS PostgreSQL (Multi-AZ in prod + cross-region replica enabled) and Redis (Multi-AZ)
+The production customer domain is `shopcloud-503q.click`.
 
-## Deploy (High Level)
+## Architecture
 
-1. Apply infrastructure:
-   - `terraform/environments/primary-us-east-1`
-   - `terraform/environments/dev-us-east-1`
-2. Install cluster add-ons:
-   - AWS Load Balancer Controller
-   - External Secrets
-   - Metrics Server
-   - Cluster Autoscaler
-   - KEDA
+ShopCloud uses a primary production region in `us-east-1`, a DR environment in `eu-west-1`, and a separate development environment.
 
-   For the AWS Load Balancer Controller, use the helper script so Helm gets the
-   real EKS VPC ID and IRSA role ARN instead of applying placeholder values:
+```text
+Customer
+  -> Route 53 public hosted zone
+  -> CloudFront custom domain, TLS, caching, WAF
+  -> Public Application Load Balancer
+  -> AWS Load Balancer Controller ingress
+  -> EKS services: catalog, cart, checkout, auth
 
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts\install-aws-lb-controller.ps1
-   ```
+Admin
+  -> AWS Client VPN
+  -> Route 53 private hosted zone
+  -> Internal Application Load Balancer
+  -> AWS Load Balancer Controller ingress
+  -> EKS service: admin
 
-   In GitHub Actions, expose the repository secret as `AWS_ACCOUNT_ID`; the
-   script will use it and verify it matches the assumed AWS role.
+Checkout invoice flow
+  -> checkout service
+  -> Amazon SQS invoice queue
+  -> AWS Lambda PDF generator
+  -> S3 invoice bucket
+  -> Amazon SES email with PDF attachment
 
-   External Secrets also needs its IRSA role rendered before Helm applies:
+Cart/session flow
+  -> cart service
+  -> Amazon ElastiCache for Redis, Multi-AZ
 
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts\install-external-secrets.ps1
-   ```
+Product/order data flow
+  -> catalog and checkout services
+  -> Amazon RDS PostgreSQL, Multi-AZ in production
+```
 
-   Cluster Autoscaler uses the same secret-driven IRSA rendering:
+## Environments
 
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts\install-cluster-autoscaler.ps1
-   ```
-3. Apply app manifests:
-   - production: `kubectl apply -k k8s/overlays/us-east-1`
-   - development: `kubectl apply -k k8s/overlays/dev-us-east-1`
+| Environment | Region | Purpose | Terraform path | Kubernetes overlay |
+| --- | --- | --- | --- | --- |
+| Production primary | `us-east-1` | Live customer/admin workload | `terraform/environments/primary-us-east-1` | `k8s/overlays/us-east-1` |
+| Development | `us-east-1` | CI/CD dev deploys and testing | `terraform/environments/dev-us-east-1` | `k8s/overlays/dev-us-east-1` |
+| Disaster recovery | `eu-west-1` | Warm DR cluster and regional ingress | `terraform/environments/dr-eu-west-1` | `k8s/overlays/eu-west-1` |
+| Global | Cross-region | Peering/global supporting resources | `terraform/global` | n/a |
+
+Production uses:
+
+- EKS cluster: `shopcloud-primary`
+- Public customer hostnames: `https://shopcloud-503q.click` and `https://app.shopcloud-503q.click`
+- Private admin hostname: `admin.internal.shopcloud-503q.click`
+- CloudFront distribution: `E3SWU5X2NYGI9E`
+- Public hosted zone: `Z03870742KSFCPI8PJWDC`
+- Private hosted zone: `Z03072971G44YK6HA4NV6`
+
+## Customer Path
+
+Customers use HTTPS only.
+
+```text
+Customer browser
+  -> Route 53 A alias for shopcloud-503q.click or app.shopcloud-503q.click
+  -> CloudFront distribution d3rr231e93c53u.cloudfront.net
+  -> AWS WAF web ACL on CloudFront
+  -> Public ALB k8s-shopcloudpublic-afbeb03e50-1960809462.us-east-1.elb.amazonaws.com
+  -> EKS ingress shopcloud-public
+  -> Service by path
+```
+
+Ingress routing:
+
+| Public path | Backend service | Purpose |
+| --- | --- | --- |
+| `/` | `catalog` | Storefront HTML |
+| `/api/catalog/*` | `catalog` | Products, categories, search |
+| `/api/cart/*` | `cart` | Cart/session API |
+| `/api/checkout/*` | `checkout` | Checkout and order creation |
+| `/api/auth/*` | `auth` | Customer signup/login and admin auth API |
+
+CloudFront terminates TLS at the edge and redirects HTTP viewers to HTTPS. CloudFront currently has the primary public ALB as its origin because CloudFront origin groups cannot be used on a cache behavior that allows write methods such as `POST`, `PUT`, `PATCH`, and `DELETE`.
+
+Shield Standard automatically protects CloudFront, Route 53, and ALB against common DDoS attacks. Shield Advanced is not enabled.
+
+## Admin Path
+
+Administrative traffic does not use the public customer front door.
+
+```text
+Admin user
+  -> AWS Client VPN
+  -> VPC private DNS resolver
+  -> Route 53 private hosted zone internal.shopcloud-503q.click
+  -> admin.internal.shopcloud-503q.click
+  -> Internal ALB internal-k8s-shopcloudadmin-0a74081895-332932850.us-east-1.elb.amazonaws.com
+  -> EKS ingress shopcloud-admin
+  -> admin service
+```
+
+The public hosted zone does not publish an `admin.internal.shopcloud-503q.click` A record. The name exists only in the private hosted zone associated with the VPC.
+
+Client VPN is currently certificate-authenticated with mutual TLS. The Terraform VPN module supports MFA by setting `vpn_mfa_saml_provider_arn`, but the live endpoint is certificate-only until an IAM SAML provider with MFA is configured.
+
+## Service Connections
+
+| Service | External AWS dependencies | Notes |
+| --- | --- | --- |
+| `catalog` | RDS PostgreSQL, Secrets Manager | Reads product data from the database. Initializes schema in writable environments. |
+| `cart` | ElastiCache Redis, Secrets Manager | Stores low-latency cart/session state in Redis. |
+| `checkout` | RDS PostgreSQL, Redis, SQS, Secrets Manager | Creates orders, optionally reads cart/session data, and publishes invoice events. |
+| `auth` | Cognito, Secrets Manager | Uses Cognito customer/admin user pools and app clients. |
+| `admin` | RDS PostgreSQL, S3 invoices, Cognito, Secrets Manager | Private operational view for staff. |
+| Invoice Lambda | SQS, S3, SES, CloudWatch Logs | Generates PDF invoices, stores them in S3, and sends email through SES. |
+
+Secrets are synchronized into Kubernetes through External Secrets Operator. Service accounts use IRSA roles, so pods receive scoped IAM permissions without static AWS keys.
+
+## Data Layer
+
+Production data services:
+
+- RDS PostgreSQL for product/order/admin data
+- RDS Multi-AZ enabled in production
+- Cross-region RDS read replica enabled for DR
+- ElastiCache for Redis with Multi-AZ for carts and session state
+- S3 invoice bucket with public access blocked and encryption enabled
+- SQS invoice queue with a DLQ
+- SES domain/email identities for invoice delivery
+
+Important DR note: the DR database is a read replica. Catalog reads work in DR, but checkout writes should not be routed there until the data layer is changed to a writable regional database, a promoted failover database, or another write-safe replication design.
+
+## Checkout And Invoice Flow
+
+```text
+1. Customer submits checkout in the frontend.
+2. Frontend calls /api/checkout through CloudFront and the public ALB.
+3. checkout validates the request and writes the order to PostgreSQL.
+4. checkout publishes an invoice event to SQS.
+5. SQS triggers the invoice Lambda.
+6. Lambda renders a PDF invoice.
+7. Lambda uploads the PDF to S3.
+8. Lambda sends the invoice email through SES.
+```
+
+KEDA is included for SQS-based scaling so consumers can scale with invoice queue depth when traffic bursts.
+
+SES caveat: if the AWS account is still in SES sandbox mode, both the sender and recipient identities must be verified. Production SES access is required before sending invoices to arbitrary customer emails.
+
+## Security Implementations
+
+Network and edge security:
+
+- Route 53 public zone for customer records
+- Route 53 private zone for admin DNS
+- CloudFront HTTPS redirect and TLS termination at the edge
+- AWS WAF on CloudFront with managed common, SQLi, known-bad-inputs, and rate-limit rules
+- Shield Standard through AWS managed protection
+- Public ALB only for customer traffic
+- Internal ALB for admin traffic
+- Client VPN for private admin access
+- Security groups restrict access between ALBs, EKS nodes, RDS, Redis, Lambda, and VPN
+
+Identity and access:
+
+- GitHub Actions uses OIDC to assume AWS IAM roles
+- No long-lived AWS access keys are required in GitHub
+- Required GitHub secret: `AWS_ACCOUNT_ID`
+- EKS pods use IRSA for service-specific AWS permissions
+- External Secrets Operator reads only the secrets it needs through IAM
+- Cognito separates customer and admin authentication
+
+Application and Kubernetes hardening:
+
+- Containers run as non-root user `1000`
+- Read-only root filesystem is enabled in Kubernetes manifests
+- Linux capabilities are dropped
+- Privilege escalation is disabled
+- Runtime default seccomp profile is configured
+- Pod Security admission labels are set to `restricted`
+- Liveness and readiness probes are defined
+- Rolling updates use `maxUnavailable: 0`
+- Pod disruption budgets and HPAs are configured
+
+Data protection and observability:
+
+- RDS SSL is enforced through the parameter group
+- Redis auth token is stored in Secrets Manager
+- Secrets Manager can use a customer-managed KMS key
+- S3 invoice bucket blocks public access
+- VPC flow logs are enabled
+- Client VPN connection logs are enabled
+- Lambda logs go to CloudWatch
+- Terraform state uses the configured remote backend and locking
 
 ## CI/CD
 
-- Production workflows trigger from `main`
-- Development workflows trigger from `dev`
-- Workflows are split for build/push and EKS deployment by environment
+The project follows the CI/CD pattern from the lab:
 
-## Domain-dependent features
+```text
+Pull request
+  -> CI checks
+  -> review and merge
 
-CloudFront CDN + WAF + Shield, Route 53 latency-based routing with a custom domain, Client VPN with MFA, and ACM certificates are implemented in Terraform modules.
+dev branch
+  -> build images
+  -> Trivy scan
+  -> push to ECR
+  -> automatic deploy to shopcloud-dev
 
-These are disabled in the default `terraform/environments/primary-us-east-1/terraform.tfvars` because they require a registered domain delegated to Route 53 and valid DNS ownership.
+main branch
+  -> build images
+  -> Trivy scan
+  -> push to ECR
+  -> wait for production environment approval
+  -> deploy exact commit SHA to shopcloud-primary
 
-SES invoice email also depends on domain ownership. The invoice Lambda writes
-PDFs to S3 and sends the PDF as an SES attachment, but AWS will reject outbound
-mail until the sender identity is verified. In sandbox mode, SES also requires
-each recipient address to be verified; request production access before sending
-to arbitrary customer emails. Terraform outputs the SES TXT verification token
-and DKIM CNAME tokens as `ses_domain_verification_token` and `ses_dkim_tokens`.
+Terraform PR
+  -> fmt
+  -> init
+  -> validate
+  -> plan
+  -> PR comment with plan output
 
-To enable the full production domain stack:
+Terraform merge to main
+  -> production environment approval
+  -> terraform apply
+```
 
-1. Register a domain and delegate its NS records to Route 53.
-2. Set `domain_name` in `terraform/environments/primary-us-east-1/terraform.tfvars`.
-3. Set `enable_domain = true`, `enable_cloudfront = true`, and `enable_vpn = true`.
-4. Apply Terraform again.
+Workflows:
 
-The full reference values are provided in `terraform/environments/primary-us-east-1/terraform.tfvars.prod-full-spec`.
+| Workflow | Trigger | Purpose |
+| --- | --- | --- |
+| `.github/workflows/ci.yml` | PRs to `dev` or `main`, selected pushes, manual | Python compile, Kustomize render, Docker build, Trivy scan, Terraform fmt |
+| `.github/workflows/docker-build-push-dev.yml` | Push to `dev`, manual | Build, scan, and push `dev-latest` plus commit SHA images |
+| `.github/workflows/k8s-deploy-dev.yml` | Successful dev image build, manual | Deploy the exact built SHA to `shopcloud-dev` |
+| `.github/workflows/docker-build-push.yml` | Push to `main`, manual | Build, scan, and push `prod-latest` plus commit SHA images |
+| `.github/workflows/k8s-deploy.yml` | Successful prod image build, manual | Deploy the exact built SHA to `shopcloud-primary` after production approval |
+| `.github/workflows/terraform-plan.yml` | Terraform PR changes | Validate and comment Terraform plans |
+| `.github/workflows/terraform-apply.yml` | Push to `main`, manual | Apply Terraform with production environment protection |
+
+Recommended GitHub repository settings:
+
+- Protect `main`
+- Require pull requests before merging
+- Require CI/Terraform checks to pass
+- Require branches to be up to date before merging
+- Configure the GitHub `production` Environment with required reviewers
+- Do not store AWS access keys in GitHub secrets; use OIDC roles
+
+## Deployment
+
+High-level deployment order:
+
+1. Apply Terraform for the target environment.
+2. Install cluster add-ons.
+3. Apply Kubernetes manifests.
+4. Let CI/CD manage image rollout after that.
+
+Cluster add-ons:
+
+- AWS Load Balancer Controller
+- External Secrets Operator
+- Metrics Server
+- Cluster Autoscaler
+- KEDA
+
+Helper scripts render the real AWS account ID, VPC ID, and IRSA role ARN before installing Helm charts:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install-aws-lb-controller.ps1
+powershell -ExecutionPolicy Bypass -File scripts\install-external-secrets.ps1
+powershell -ExecutionPolicy Bypass -File scripts\install-cluster-autoscaler.ps1
+```
+
+Manual app manifest apply, when needed:
+
+```powershell
+kubectl apply -k k8s/overlays/us-east-1
+kubectl apply -k k8s/overlays/dev-us-east-1
+kubectl apply -k k8s/overlays/eu-west-1
+```
+
+In normal operation, prefer GitHub Actions over manual `kubectl set image` so every deployment uses the same build, scan, push, and rollout path.
+
+## Disaster Recovery
+
+The DR environment in `eu-west-1` has:
+
+- EKS cluster `shopcloud-dr`
+- Public ALB `k8s-shopcloudpublic-dca989f5cd-486176209.eu-west-1.elb.amazonaws.com`
+- Internal ALB `internal-k8s-shopcloudadmin-ec43e1bc35-461599104.eu-west-1.elb.amazonaws.com`
+- External Secrets configured for DR secrets
+- Service account patches for `shopcloud-dr-irsa-*`
+- Image patches for ECR in `eu-west-1`
+- `SKIP_DB_SCHEMA_INIT=true` for catalog and checkout because the DR database is a read replica
+
+Do not route live checkout writes to the DR ALB until the database write strategy is solved. The DR path is currently useful for warm standby validation and read-path checks.
+
+## Known Constraints
+
+- CloudFront origin failover is not enabled because origin groups cannot be used on a behavior that allows write methods.
+- Route 53 latency routing to multiple regional ALBs would bypass CloudFront/WAF unless separate edge architecture is introduced.
+- The customer domain currently routes through CloudFront to the primary public ALB.
+- Client VPN MFA is supported by Terraform but not active until `vpn_mfa_saml_provider_arn` is configured.
+- SES may still require verified recipients if the account is in sandbox mode.
+- DR checkout writes are not safe while DR uses an RDS read replica.
+
+## Useful Checks
+
+```powershell
+terraform -chdir=terraform/environments/primary-us-east-1 validate
+terraform -chdir=terraform/environments/primary-us-east-1 plan
+
+kubectl --context arn:aws:eks:us-east-1:${AWS_ACCOUNT_ID}:cluster/shopcloud-primary -n shopcloud get pods,ingress
+kubectl --context shopcloud-dr -n shopcloud get pods,ingress
+
+curl.exe https://shopcloud-503q.click/api/catalog/products
+curl.exe https://app.shopcloud-503q.click/api/catalog/products
+```
+
+## Repository Map
+
+```text
+services/
+  admin/
+  auth/
+  cart/
+  catalog/
+  checkout/
+
+k8s/
+  base/
+  overlays/
+    us-east-1/
+    dev-us-east-1/
+    eu-west-1/
+  helm-values/
+  addons/
+
+terraform/
+  environments/
+    primary-us-east-1/
+    dev-us-east-1/
+    dr-eu-west-1/
+  global/
+  modules/
+
+.github/workflows/
+  ci.yml
+  docker-build-push.yml
+  docker-build-push-dev.yml
+  k8s-deploy.yml
+  k8s-deploy-dev.yml
+  terraform-plan.yml
+  terraform-apply.yml
+```

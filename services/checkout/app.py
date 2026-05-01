@@ -28,6 +28,7 @@ DB_PORT = os.environ.get("DB_PORT", "5432")
 DB_NAME = os.environ.get("DB_NAME", "shopcloud")
 DB_USER = os.environ.get("DB_USER", "shopcloud_admin")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
+SKIP_DB_SCHEMA_INIT = os.environ.get("SKIP_DB_SCHEMA_INIT", "").lower() in {"1", "true", "yes"}
 
 _pool: psycopg2.pool.SimpleConnectionPool | None = None
 
@@ -93,6 +94,9 @@ def _init_schema() -> None:
 
 @app.on_event("startup")
 def startup() -> None:
+    if SKIP_DB_SCHEMA_INIT:
+        log.info("Skipping checkout schema initialization")
+        return
     _init_schema()
 
 

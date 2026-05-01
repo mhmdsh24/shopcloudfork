@@ -5,15 +5,15 @@
 #   - Without domain (route53_zone_id = ""): uses the default
 #     *.cloudfront.net hostname + CloudFront's own TLS cert.
 #     No ACM or Route 53 required.
-#   - With domain (route53_zone_id set): adds a custom alias
-#     (app.<domain>), an ACM cert, and writes DNS validation
+#   - With domain (route53_zone_id set): adds custom aliases
+#     (<domain> and app.<domain>), an ACM cert, and writes DNS validation
 #     records into Route 53.
 ############################################################
 
 locals {
-  tags             = merge(var.tags, { Module = "cdn-waf" })
+  tags              = merge(var.tags, { Module = "cdn-waf" })
   use_custom_domain = var.route53_zone_id != ""
-  cf_aliases        = local.use_custom_domain ? ["app.${var.domain_name}"] : []
+  cf_aliases        = local.use_custom_domain ? [var.domain_name, "app.${var.domain_name}"] : []
 }
 
 # ----------------------------------------------------------

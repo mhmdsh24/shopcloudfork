@@ -12,7 +12,7 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-    - host: admin.internal.shopcloud.com
+    - host: admin.internal.shopcloud-503q.click
       http:
         paths:
           - path: /
