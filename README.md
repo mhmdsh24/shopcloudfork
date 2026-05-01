@@ -5,8 +5,8 @@ ShopCloud is an AWS-hosted e-commerce platform built on EKS. The application is 
 - `catalog`: product browsing, search, categories, and the storefront page
 - `cart`: low-latency shopping cart/session state
 - `checkout`: order creation and invoice event publishing
-- `auth`: customer/admin authentication through Amazon Cognito
-- `admin`: private administrative interface
+- `auth`: customer authentication through Amazon Cognito, plus legacy admin Cognito helpers
+- `admin`: private administrative interface with DB-backed email/password admin sessions
 
 The production customer domain is `shopcloud-503q.click`.
 
@@ -85,7 +85,7 @@ Ingress routing:
 | `/api/catalog/*` | `catalog` | Products, categories, search |
 | `/api/cart/*` | `cart` | Cart/session API |
 | `/api/checkout/*` | `checkout` | Checkout and order creation |
-| `/api/auth/*` | `auth` | Customer signup/login and admin auth API |
+| `/api/auth/*` | `auth` | Customer signup/login API and legacy auth helpers |
 
 CloudFront terminates TLS at the edge and redirects HTTP viewers to HTTPS. CloudFront currently has the primary public ALB as its origin because CloudFront origin groups cannot be used on a cache behavior that allows write methods such as `POST`, `PUT`, `PATCH`, and `DELETE`.
 
@@ -110,6 +110,8 @@ The public hosted zone does not publish an `admin.internal.shopcloud-503q.click`
 
 Client VPN is currently certificate-authenticated with mutual TLS. The Terraform VPN module supports MFA by setting `vpn_mfa_saml_provider_arn`, but the live endpoint is certificate-only until an IAM SAML provider with MFA is configured.
 
+The admin service provides email/password signup and login on the private admin host, then uses a secure session cookie for admin API calls. The dashboard supports product management and read-only order review.
+
 ## Service Connections
 
 | Service | External AWS dependencies | Notes |
@@ -117,8 +119,8 @@ Client VPN is currently certificate-authenticated with mutual TLS. The Terraform
 | `catalog` | RDS PostgreSQL, Secrets Manager | Reads product data from the database. Initializes schema in writable environments. |
 | `cart` | ElastiCache Redis, Secrets Manager | Stores low-latency cart/session state in Redis. |
 | `checkout` | RDS PostgreSQL, Redis, SQS, Secrets Manager | Creates orders, optionally reads cart/session data, and publishes invoice events. |
-| `auth` | Cognito, Secrets Manager | Uses Cognito customer/admin user pools and app clients. |
-| `admin` | RDS PostgreSQL, S3 invoices, Cognito, Secrets Manager | Private operational view for staff. |
+| `auth` | Cognito, Secrets Manager | Uses Cognito customer/admin user pools for auth service endpoints. |
+| `admin` | RDS PostgreSQL, Secrets Manager | Private operational view for staff; stores admin accounts and reads/writes product data in PostgreSQL. |
 | Invoice Lambda | SQS, S3, SES, CloudWatch Logs | Generates PDF invoices, stores them in S3, and sends email through SES. |
 
 Secrets are synchronized into Kubernetes through External Secrets Operator. Service accounts use IRSA roles, so pods receive scoped IAM permissions without static AWS keys.
@@ -175,7 +177,7 @@ Identity and access:
 - Required GitHub secret: `AWS_ACCOUNT_ID`
 - EKS pods use IRSA for service-specific AWS permissions
 - External Secrets Operator reads only the secrets it needs through IAM
-- Cognito separates customer and admin authentication
+- Customer authentication uses Cognito; admin access is private-network scoped and uses the admin service's email/password sessions
 
 Application and Kubernetes hardening:
 
@@ -264,6 +266,14 @@ High-level deployment order:
 3. Apply Kubernetes manifests.
 4. Let CI/CD manage image rollout after that.
 
+Kubernetes upgrade notes:
+
+- Terraform targets EKS Kubernetes `1.35` for primary, development, and DR.
+- For an existing cluster that is still on `1.30`, do not apply directly to `1.35`. EKS minor upgrades must be performed one minor at a time. Apply `-var eks_cluster_version=1.31`, then `1.32`, `1.33`, `1.34`, and finally `1.35`.
+- Kubernetes `1.35` expects nodes to run without cgroup v1 by default. The EKS module explicitly uses the `AL2023_x86_64_STANDARD` managed node AMI type so new workers use cgroup v2.
+- Review the Terraform plan before applying. Moving an existing managed node group from an older AMI family to AL2023 may replace or roll the node group, so keep enough capacity for PodDisruptionBudgets and system pods.
+- Re-run the Helm add-on scripts after the control plane and nodes are on the target minor. The Cluster Autoscaler values pin the 1.35 image, and Terraform resolves compatible EKS-managed `vpc-cni`, `coredns`, and `kube-proxy` add-on versions.
+
 Cluster add-ons:
 
 - AWS Load Balancer Controller
@@ -300,7 +310,7 @@ The DR environment in `eu-west-1` has:
 - External Secrets configured for DR secrets
 - Service account patches for `shopcloud-dr-irsa-*`
 - Image patches for ECR in `eu-west-1`
-- `SKIP_DB_SCHEMA_INIT=true` for catalog and checkout because the DR database is a read replica
+- `SKIP_DB_SCHEMA_INIT=true` for catalog, checkout, and admin because the DR database is a read replica
 
 Do not route live checkout writes to the DR ALB until the database write strategy is solved. The DR path is currently useful for warm standby validation and read-path checks.
 

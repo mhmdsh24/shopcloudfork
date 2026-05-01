@@ -70,6 +70,7 @@ enable_cross_region_replica    = true
 # EKS node group sizing
 ############################################################
 
+eks_cluster_version     = "1.35"
 eks_node_instance_types = ["t3.small"]
 eks_node_capacity_type  = "ON_DEMAND"
 eks_node_desired_size   = 2

@@ -3,7 +3,7 @@ services:
   postgres:
     image: postgres:16-alpine
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     environment:
       POSTGRES_DB: shopcloud
       POSTGRES_USER: shopcloud_admin
@@ -74,8 +74,7 @@ services:
       DB_NAME: shopcloud
       DB_USER: shopcloud_admin
       DB_PASSWORD: localdev
-      ADMIN_POOL_ID: us-east-1_mockpooladmin
-      ADMIN_CLIENT_ID: mockadminclient
+      DB_SSLMODE: disable
 
   gateway:
     image: nginx:1.27-alpine

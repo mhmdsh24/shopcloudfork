@@ -4,6 +4,8 @@
 autoDiscovery:
   clusterName: shopcloud-dr
 awsRegion: eu-west-1
+image:
+  tag: v1.35.0
 rbac:
   serviceAccount:
     create: true

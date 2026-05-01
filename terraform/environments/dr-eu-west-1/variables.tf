@@ -115,7 +115,7 @@ variable "enable_dr_compute" {
 variable "eks_cluster_version" {
   description = "Kubernetes version for the DR EKS cluster."
   type        = string
-  default     = "1.30"
+  default     = "1.35"
 }
 
 variable "eks_public_access_cidrs" {

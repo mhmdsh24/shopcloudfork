@@ -91,6 +91,7 @@ enable_cross_region_replica     = false
 #   eks_node_max_size       = 4
 ############################################################
 
+eks_cluster_version     = "1.35"
 eks_node_instance_types = ["t3.micro"]
 eks_node_capacity_type  = "ON_DEMAND"
 eks_node_desired_size   = 1

@@ -6,7 +6,13 @@ variable "cluster_name" {
 variable "kubernetes_version" {
   description = "EKS Kubernetes version."
   type        = string
-  default     = "1.30"
+  default     = "1.35"
+}
+
+variable "node_ami_type" {
+  description = "EKS managed node AMI type. AL2023 keeps Kubernetes 1.35 nodes on cgroup v2."
+  type        = string
+  default     = "AL2023_x86_64_STANDARD"
 }
 
 variable "subnet_ids" {

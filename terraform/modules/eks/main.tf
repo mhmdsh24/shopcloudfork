@@ -202,6 +202,8 @@ resource "aws_eks_node_group" "workers" {
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.subnet_ids
 
+  version        = var.kubernetes_version
+  ami_type       = var.node_ami_type
   capacity_type  = var.node_capacity_type
   instance_types = var.node_instance_types
 
@@ -271,10 +273,28 @@ resource "aws_autoscaling_group_tag" "autoscaler_cluster" {
 # Add-ons
 # ----------------------------------------------------------
 
+data "aws_eks_addon_version" "vpc_cni" {
+  addon_name         = "vpc-cni"
+  kubernetes_version = var.kubernetes_version
+  most_recent        = true
+}
+
+data "aws_eks_addon_version" "coredns" {
+  addon_name         = "coredns"
+  kubernetes_version = var.kubernetes_version
+  most_recent        = true
+}
+
+data "aws_eks_addon_version" "kube_proxy" {
+  addon_name         = "kube-proxy"
+  kubernetes_version = var.kubernetes_version
+  most_recent        = true
+}
+
 resource "aws_eks_addon" "vpc_cni" {
   cluster_name  = aws_eks_cluster.this.name
   addon_name    = "vpc-cni"
-  addon_version = null
+  addon_version = data.aws_eks_addon_version.vpc_cni.version
 
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
@@ -291,7 +311,7 @@ resource "aws_eks_addon" "vpc_cni" {
 resource "aws_eks_addon" "coredns" {
   cluster_name  = aws_eks_cluster.this.name
   addon_name    = "coredns"
-  addon_version = null
+  addon_version = data.aws_eks_addon_version.coredns.version
 
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
@@ -303,7 +323,7 @@ resource "aws_eks_addon" "coredns" {
 resource "aws_eks_addon" "kube_proxy" {
   cluster_name  = aws_eks_cluster.this.name
   addon_name    = "kube-proxy"
-  addon_version = null
+  addon_version = data.aws_eks_addon_version.kube_proxy.version
 
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"

@@ -1,37 +1,46 @@
-"""Admin service — product CRUD, order management, JWT-protected dashboard."""
+"""Admin service — product CRUD, order management, and email/password admin sessions."""
 from __future__ import annotations
 
+import base64
+import binascii
+import hashlib
+import hmac
+import json
 import logging
 import os
+import re
+import secrets
 import time
 from contextlib import contextmanager
-from functools import lru_cache
 from typing import Any
 
-import boto3
 import psycopg2
+import psycopg2.errors
 import psycopg2.pool
-import requests as http_requests
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse
-from jose import JWTError, jwt
 from prometheus_fastapi_instrumentator import Instrumentator
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 app = FastAPI(title="shopcloud-admin")
 Instrumentator().instrument(app).expose(app)
 
 log = logging.getLogger("admin")
 
-region = os.environ.get("AWS_REGION", "us-east-1")
-ADMIN_POOL_ID = os.environ.get("ADMIN_POOL_ID", "")
-ADMIN_CLIENT_ID = os.environ.get("ADMIN_CLIENT_ID", "")
-
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_PORT = os.environ.get("DB_PORT", "5432")
 DB_NAME = os.environ.get("DB_NAME", "shopcloud")
 DB_USER = os.environ.get("DB_USER", "shopcloud_admin")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
+DB_SSLMODE = os.environ.get("DB_SSLMODE", "require")
+SKIP_DB_SCHEMA_INIT = os.environ.get("SKIP_DB_SCHEMA_INIT", "").lower() in {"1", "true", "yes"}
+
+ADMIN_SESSION_COOKIE = "shopcloud_admin_session"
+ADMIN_SESSION_TTL_SECONDS = int(os.environ.get("ADMIN_SESSION_TTL_SECONDS", "43200"))
+ADMIN_SESSION_SECRET = os.environ.get("ADMIN_SESSION_SECRET") or DB_PASSWORD or "shopcloud-admin-local"
+ADMIN_COOKIE_SECURE = os.environ.get("ADMIN_COOKIE_SECURE", "").lower() in {"1", "true", "yes"}
+PASSWORD_HASH_ITERATIONS = int(os.environ.get("ADMIN_PASSWORD_HASH_ITERATIONS", "260000"))
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 _pool: psycopg2.pool.SimpleConnectionPool | None = None
 
@@ -45,7 +54,7 @@ def _get_pool() -> psycopg2.pool.SimpleConnectionPool:
                     1, 10,
                     host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
                     user=DB_USER, password=DB_PASSWORD,
-                    sslmode="require",
+                    sslmode=DB_SSLMODE,
                 )
                 break
             except psycopg2.OperationalError:
@@ -70,40 +79,182 @@ def _db():
 
 
 # ---------------------------------------------------------------------------
-# JWT auth — mirrors the auth service pattern
+# Schema
 # ---------------------------------------------------------------------------
 
-@lru_cache(maxsize=4)
-def _jwks(pool_id: str) -> dict[str, Any]:
-    url = f"https://cognito-idp.{region}.amazonaws.com/{pool_id}/.well-known/jwks.json"
-    return http_requests.get(url, timeout=5).json()
-
-
-def _decode_token(token: str) -> dict[str, Any]:
-    headers = jwt.get_unverified_header(token)
-    kid = headers.get("kid")
-    for key in _jwks(ADMIN_POOL_ID).get("keys", []):
-        if key.get("kid") == kid:
-            try:
-                return jwt.decode(
-                    token, key, algorithms=["RS256"],
-                    audience=ADMIN_CLIENT_ID,
-                    issuer=f"https://cognito-idp.{region}.amazonaws.com/{ADMIN_POOL_ID}",
+def _init_schema() -> None:
+    with _db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS products (
+                    id          VARCHAR(20) PRIMARY KEY,
+                    name        VARCHAR(255) NOT NULL,
+                    description TEXT,
+                    category    VARCHAR(100) NOT NULL,
+                    image_url   VARCHAR(500),
+                    price       NUMERIC(10,2) NOT NULL,
+                    stock       INTEGER NOT NULL DEFAULT 0,
+                    created_at  TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at  TIMESTAMPTZ DEFAULT NOW()
                 )
-            except JWTError as exc:
-                raise HTTPException(status_code=401, detail=f"Invalid token: {exc}") from exc
-    raise HTTPException(status_code=401, detail="Signing key not found")
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS orders (
+                    id               VARCHAR(20) PRIMARY KEY,
+                    customer_email   VARCHAR(255) NOT NULL,
+                    total            NUMERIC(10,2) NOT NULL,
+                    currency         VARCHAR(3) DEFAULT 'USD',
+                    status           VARCHAR(20) DEFAULT 'completed',
+                    transaction_id   VARCHAR(50),
+                    created_at       TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS order_items (
+                    id           SERIAL PRIMARY KEY,
+                    order_id     VARCHAR(20) REFERENCES orders(id),
+                    product_id   VARCHAR(20),
+                    product_name VARCHAR(255),
+                    quantity     INTEGER NOT NULL,
+                    unit_price   NUMERIC(10,2) NOT NULL
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS admin_users (
+                    id            SERIAL PRIMARY KEY,
+                    email         VARCHAR(255) NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    created_at    TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at    TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            cur.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS admin_users_email_lower_idx "
+                "ON admin_users (LOWER(email))"
+            )
 
 
-def admin_required(authorization: str | None = Header(default=None)) -> dict[str, Any]:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing bearer token")
-    return _decode_token(authorization.split(" ", 1)[1])
+@app.on_event("startup")
+def startup() -> None:
+    if SKIP_DB_SCHEMA_INIT:
+        log.info("Skipping admin schema initialization")
+        return
+    _init_schema()
+
+
+# ---------------------------------------------------------------------------
+# Email/password auth
+# ---------------------------------------------------------------------------
+
+def _normalize_email(email: str) -> str:
+    normalized = email.strip().lower()
+    if not EMAIL_RE.match(normalized):
+        raise HTTPException(status_code=400, detail="A valid email address is required")
+    return normalized
+
+
+def _hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt,
+        PASSWORD_HASH_ITERATIONS,
+    )
+    return (
+        f"pbkdf2_sha256${PASSWORD_HASH_ITERATIONS}$"
+        f"{base64.b64encode(salt).decode('ascii')}$"
+        f"{base64.b64encode(digest).decode('ascii')}"
+    )
+
+
+def _verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        algorithm, iterations_s, salt_s, digest_s = stored_hash.split("$", 3)
+        if algorithm != "pbkdf2_sha256":
+            return False
+        iterations = int(iterations_s)
+        salt = base64.b64decode(salt_s.encode("ascii"))
+        expected = base64.b64decode(digest_s.encode("ascii"))
+    except (ValueError, binascii.Error):
+        return False
+    actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    return hmac.compare_digest(actual, expected)
+
+
+def _b64url_encode(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def _b64url_decode(value: str) -> bytes:
+    padding = "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode((value + padding).encode("ascii"))
+
+
+def _session_signature(payload: str) -> str:
+    digest = hmac.new(
+        ADMIN_SESSION_SECRET.encode("utf-8"),
+        payload.encode("ascii"),
+        hashlib.sha256,
+    ).digest()
+    return _b64url_encode(digest)
+
+
+def _make_session(user_id: int, email: str) -> str:
+    payload = _b64url_encode(json.dumps(
+        {
+            "sub": user_id,
+            "email": email,
+            "exp": int(time.time()) + ADMIN_SESSION_TTL_SECONDS,
+            "nonce": secrets.token_urlsafe(16),
+        },
+        separators=(",", ":"),
+    ).encode("utf-8"))
+    return f"{payload}.{_session_signature(payload)}"
+
+
+def _decode_session(token: str) -> dict[str, Any]:
+    try:
+        payload, signature = token.split(".", 1)
+        expected = _session_signature(payload)
+        if not hmac.compare_digest(signature, expected):
+            raise ValueError("bad signature")
+        claims = json.loads(_b64url_decode(payload))
+    except (ValueError, json.JSONDecodeError, binascii.Error) as exc:
+        raise HTTPException(status_code=401, detail="Invalid admin session") from exc
+    if int(claims.get("exp", 0)) < int(time.time()):
+        raise HTTPException(status_code=401, detail="Admin session expired")
+    return claims
+
+
+def _set_session_cookie(response: Response, user_id: int, email: str) -> None:
+    response.set_cookie(
+        key=ADMIN_SESSION_COOKIE,
+        value=_make_session(user_id, email),
+        max_age=ADMIN_SESSION_TTL_SECONDS,
+        httponly=True,
+        secure=ADMIN_COOKIE_SECURE,
+        samesite="lax",
+        path="/",
+    )
+
+
+def admin_required(
+    admin_session: str | None = Cookie(default=None, alias=ADMIN_SESSION_COOKIE),
+) -> dict[str, Any]:
+    if not admin_session:
+        raise HTTPException(status_code=401, detail="Admin login required")
+    return _decode_session(admin_session)
 
 
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
+
+class AdminAuthIn(BaseModel):
+    email: str
+    password: str
+
 
 class ProductIn(BaseModel):
     id: str
@@ -111,8 +262,8 @@ class ProductIn(BaseModel):
     description: str = ""
     category: str
     image_url: str = ""
-    price: float
-    stock: int = 0
+    price: float = Field(ge=0)
+    stock: int = Field(default=0, ge=0)
 
 
 class ProductUpdate(BaseModel):
@@ -120,8 +271,12 @@ class ProductUpdate(BaseModel):
     description: str | None = None
     category: str | None = None
     image_url: str | None = None
-    price: float | None = None
-    stock: int | None = None
+    price: float | None = Field(default=None, ge=0)
+    stock: int | None = Field(default=None, ge=0)
+
+
+class StockUpdate(BaseModel):
+    stock: int = Field(ge=0)
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +309,68 @@ def dashboard() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Product CRUD  (all require admin JWT)
+# Admin auth
+# ---------------------------------------------------------------------------
+
+@app.post("/api/admin/signup", status_code=201)
+def admin_signup(payload: AdminAuthIn, response: Response) -> dict[str, Any]:
+    email = _normalize_email(payload.email)
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    try:
+        with _db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO admin_users (email, password_hash) VALUES (%s, %s) "
+                    "RETURNING id, email",
+                    (email, _hash_password(payload.password)),
+                )
+                row = cur.fetchone()
+    except psycopg2.errors.UniqueViolation as exc:
+        raise HTTPException(status_code=409, detail="Admin email already exists") from exc
+
+    user_id, saved_email = row
+    _set_session_cookie(response, user_id, saved_email)
+    return {"authenticated": True, "admin": {"id": user_id, "email": saved_email}}
+
+
+@app.post("/api/admin/login")
+def admin_login(payload: AdminAuthIn, response: Response) -> dict[str, Any]:
+    email = _normalize_email(payload.email)
+    with _db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, email, password_hash FROM admin_users WHERE LOWER(email) = LOWER(%s)",
+                (email,),
+            )
+            row = cur.fetchone()
+
+    if not row or not _verify_password(payload.password, row[2]):
+        raise HTTPException(status_code=401, detail="Invalid admin email or password")
+
+    user_id, saved_email, _ = row
+    _set_session_cookie(response, user_id, saved_email)
+    return {"authenticated": True, "admin": {"id": user_id, "email": saved_email}}
+
+
+@app.post("/api/admin/logout")
+def admin_logout(response: Response) -> dict[str, bool]:
+    response.delete_cookie(ADMIN_SESSION_COOKIE, path="/")
+    return {"authenticated": False}
+
+
+@app.get("/api/admin/me")
+def admin_me(claims: dict[str, Any] = Depends(admin_required)) -> dict[str, Any]:
+    return {
+        "authenticated": True,
+        "admin": {"id": claims["sub"], "email": claims["email"]},
+        "expires_at": claims["exp"],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Product CRUD  (all require an admin session)
 # ---------------------------------------------------------------------------
 
 @app.get("/api/admin/products")
@@ -178,20 +394,23 @@ def list_products(_: dict = Depends(admin_required)) -> dict:
 
 @app.post("/api/admin/products", status_code=201)
 def create_product(product: ProductIn, _: dict = Depends(admin_required)) -> dict:
-    with _db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO products (id, name, description, category, image_url, price, stock) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                (product.id, product.name, product.description, product.category,
-                 product.image_url, product.price, product.stock),
-            )
+    try:
+        with _db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO products (id, name, description, category, image_url, price, stock) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (product.id, product.name, product.description, product.category,
+                     product.image_url, product.price, product.stock),
+                )
+    except psycopg2.errors.UniqueViolation as exc:
+        raise HTTPException(status_code=409, detail="Product ID already exists") from exc
     return {"created": product.id}
 
 
 @app.put("/api/admin/products/{product_id}")
 def update_product(product_id: str, body: ProductUpdate, _: dict = Depends(admin_required)) -> dict:
-    fields = {k: v for k, v in body.model_dump().items() if v is not None}
+    fields = body.model_dump(exclude_none=True)
     if not fields:
         raise HTTPException(status_code=400, detail="No fields to update")
     sets = ", ".join(f"{k} = %s" for k in fields)
@@ -202,6 +421,19 @@ def update_product(product_id: str, body: ProductUpdate, _: dict = Depends(admin
             if cur.rowcount == 0:
                 raise HTTPException(status_code=404, detail="Product not found")
     return {"updated": product_id}
+
+
+@app.patch("/api/admin/products/{product_id}/stock")
+def update_stock(product_id: str, body: StockUpdate, _: dict = Depends(admin_required)) -> dict:
+    with _db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE products SET stock = %s, updated_at = NOW() WHERE id = %s",
+                (body.stock, product_id),
+            )
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Product not found")
+    return {"updated": product_id, "stock": body.stock}
 
 
 @app.delete("/api/admin/products/{product_id}")
@@ -336,15 +568,15 @@ body {
 .hdr .spacer { flex: 1; min-width: 8px; }
 .hdr-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 #loginSection { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-#tokenInput {
-  width: min(320px, 70vw);
+.auth-input {
+  width: min(220px, 70vw);
   padding: 10px 16px; background: rgba(0,0,0,0.2);
   border: 1px solid var(--border-light); border-radius: 999px;
   color: var(--text-main); font-family: var(--font-body); font-size: 0.88rem;
   transition: all 0.3s ease;
 }
-#tokenInput::placeholder { color: var(--text-muted); }
-#tokenInput:focus { outline: none; border-color: var(--accent-cyan); box-shadow: var(--shadow-glow); background: rgba(0,0,0,0.35); }
+.auth-input::placeholder { color: var(--text-muted); }
+.auth-input:focus { outline: none; border-color: var(--accent-cyan); box-shadow: var(--shadow-glow); background: rgba(0,0,0,0.35); }
 #authStatus { font-size: 0.82rem; color: var(--text-muted); max-width: 200px; }
 
 .btn {
@@ -485,6 +717,12 @@ textarea.field-input:focus {
   padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border-light);
   background: rgba(0,0,0,0.35); color: #FFF; font-family: var(--font-body); font-size: 0.85rem;
 }
+.stock-control { display: inline-flex; align-items: center; gap: 8px; min-width: 132px; }
+.stock-input {
+  width: 72px; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border-light);
+  background: rgba(0,0,0,0.35); color: #FFF; font-family: var(--font-body); font-size: 0.85rem;
+}
+.stock-input:focus { outline: none; border-color: var(--accent-cyan); box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.12); }
 .capabilities-hint {
   font-size: 0.84rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; padding: 14px 18px;
   background: var(--bg-glass-card); border: 1px solid var(--border-light); border-radius: var(--radius-sm);
@@ -508,8 +746,10 @@ textarea.field-input:focus {
   <div class="spacer" aria-hidden="true"></div>
   <div class="hdr-actions">
     <div id="loginSection">
-      <input id="tokenInput" type="password" placeholder="Admin JWT (Cognito admin pool)…" autocomplete="off"/>
-      <button type="button" class="btn btn-primary" onclick="setToken()">Authenticate</button>
+      <input id="emailInput" class="auth-input" type="email" placeholder="Admin email" autocomplete="username"/>
+      <input id="passwordInput" class="auth-input" type="password" placeholder="Password" autocomplete="current-password"/>
+      <button type="button" class="btn btn-primary" onclick="loginAdmin()">Log in</button>
+      <button type="button" class="btn btn-ghost" onclick="signupAdmin()">Sign up</button>
     </div>
     <button type="button" class="btn btn-ghost hidden" id="btnRefresh" onclick="load()">Refresh</button>
     <button type="button" class="btn btn-ghost hidden" id="btnSignOut" onclick="clearToken()">Sign out</button>
@@ -521,7 +761,7 @@ textarea.field-input:focus {
 <div class="wrap">
   <p class="capabilities-hint" id="capHint">
     <strong style="color:#fff">This console maps to the admin API:</strong>
-    Products — list (all fields), create, update, delete.
+    Products — list from PostgreSQL, create, update, quick stock changes, delete.
     Orders — list with adjustable limit (API default 50, max 200), read-only; open any order for line items (<code class="mono">GET /api/admin/orders/{id}</code>).
   </p>
   <div id="msgBox"></div>
@@ -534,15 +774,16 @@ textarea.field-input:focus {
     <div class="tab active" data-tab="products" onclick="switchTab('products')">Products</div>
     <div class="tab" data-tab="orders" onclick="switchTab('orders')">Orders</div>
   </div>
-  <div id="productsTab"><p class="subtle">Authenticate to load products.</p></div>
-  <div id="ordersTab" class="hidden"><p class="subtle">Authenticate to load orders.</p></div>
+  <div id="productsTab"><p class="subtle">Sign in to load products.</p></div>
+  <div id="ordersTab" class="hidden"><p class="subtle">Sign in to load orders.</p></div>
 </div>
 <div id="modalRoot"></div>
 <script>
-let TOKEN = localStorage.getItem('admin_token') || '';
+let AUTHED = false;
+let ADMIN_EMAIL = '';
 const API = '/api/admin';
 
-function hdr(){ return {Authorization:'Bearer '+TOKEN,'Content-Type':'application/json'} }
+function hdr(){ return {'Content-Type':'application/json'} }
 
 function escapeHtml(s){
   if(s==null)return '';
@@ -570,31 +811,50 @@ function formatDt(iso){
 }
 
 function updateAuthUI(){
-  const has=!!TOKEN;
+  const has=!!AUTHED;
+  document.getElementById('loginSection').classList.toggle('hidden',has);
   document.getElementById('btnRefresh').classList.toggle('hidden',!has);
   document.getElementById('btnSignOut').classList.toggle('hidden',!has);
   document.getElementById('authStatus').textContent=has
-    ? 'Authenticated'
-    : 'Paste a valid admin pool JWT, then Authenticate.';
+    ? 'Signed in as '+ADMIN_EMAIL
+    : 'Use your admin email and password.';
 }
 
-function setToken(){
-  TOKEN=document.getElementById('tokenInput').value.trim();
-  localStorage.setItem('admin_token',TOKEN);
+function authBody(){
+  return {
+    email:document.getElementById('emailInput').value.trim(),
+    password:document.getElementById('passwordInput').value
+  };
+}
+
+async function authRequest(path, okText){
+  const body=authBody();
+  if(!body.email||!body.password){msg('Email and password are required',false);return;}
+  const r=await fetch(API+path,{method:'POST',headers:hdr(),credentials:'same-origin',body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){msg(fmtApiErr(d.detail)||'Authentication failed',false);return;}
+  AUTHED=true;
+  ADMIN_EMAIL=(d.admin&&d.admin.email)||body.email;
+  document.getElementById('passwordInput').value='';
   updateAuthUI();
+  msg(okText,true);
   load();
 }
 
-function clearToken(){
-  TOKEN='';
-  localStorage.removeItem('admin_token');
-  document.getElementById('tokenInput').value='';
+function loginAdmin(){ authRequest('/login','Signed in'); }
+function signupAdmin(){ authRequest('/signup','Admin account created'); }
+
+async function clearToken(){
+  await fetch(API+'/logout',{method:'POST',credentials:'same-origin'}).catch(()=>{});
+  AUTHED=false;
+  ADMIN_EMAIL='';
+  document.getElementById('passwordInput').value='';
   updateAuthUI();
   document.getElementById('statProducts').textContent='—';
   document.getElementById('statOrders').textContent='—';
   document.getElementById('statRevenue').textContent='—';
-  document.getElementById('productsTab').innerHTML='<p class="subtle">Authenticate to manage products.</p>';
-  document.getElementById('ordersTab').innerHTML='<p class="subtle">Authenticate to view orders.</p>';
+  document.getElementById('productsTab').innerHTML='<p class="subtle">Sign in to manage products.</p>';
+  document.getElementById('ordersTab').innerHTML='<p class="subtle">Sign in to view orders.</p>';
 }
 
 function msg(text, ok){
@@ -604,14 +864,32 @@ function msg(text, ok){
 }
 
 async function api(path, opts={}){
-  const r=await fetch(API+path,{headers:hdr(),...opts});
-  if(r.status===401){msg('Unauthorized — check admin JWT (Bearer) for Cognito admin app client',false);throw new Error('401')}
+  const r=await fetch(API+path,{headers:hdr(),credentials:'same-origin',...opts});
+  if(r.status===401){
+    AUTHED=false;
+    ADMIN_EMAIL='';
+    updateAuthUI();
+    msg('Admin login required',false);
+    throw new Error('401');
+  }
   if(!r.ok){
     const e=await r.json().catch(()=>({}));
     msg(fmtApiErr(e.detail)||r.statusText,false);
     throw new Error(String(r.status));
   }
   return r.json();
+}
+
+async function checkSession(){
+  try{
+    const r=await fetch(API+'/me',{credentials:'same-origin'});
+    if(!r.ok){updateAuthUI();return;}
+    const d=await r.json();
+    AUTHED=true;
+    ADMIN_EMAIL=(d.admin&&d.admin.email)||'admin';
+    updateAuthUI();
+    load();
+  }catch(e){updateAuthUI();}
 }
 
 function switchTab(t){
@@ -637,7 +915,6 @@ async function loadProducts(){
     let h='<div class="toolbar-row"><button type="button" class="btn btn-primary" onclick="showAddProduct()">+ Add product</button><span class="subtle">'+escapeHtml(d.count)+' SKU(s) · columns match <code class="mono">GET /api/admin/products</code></span></div>';
     h+='<div class="table-wrap"><div class="table-scroll"><table><thead><tr><th></th><th>ID</th><th>Name</th><th>Description</th><th>Category</th><th>Price</th><th>Stock</th><th>Updated</th><th>Actions</th></tr></thead><tbody>';
     d.products.forEach(p=>{
-      const sc=p.stock<10?'badge-warn':'badge-ok';
       const desc=(p.description||'').trim();
       const descShort=desc.length>100?desc.slice(0,100)+'…':desc;
       h+='<tr>';
@@ -647,7 +924,8 @@ async function loadProducts(){
       h+='<td class="cell-desc" title="'+escapeAttr(desc)+'">'+(desc?escapeHtml(descShort):'<span class="subtle">—</span>')+'</td>';
       h+='<td>'+escapeHtml(p.category)+'</td>';
       h+='<td>$'+Number(p.price).toFixed(2)+'</td>';
-      h+='<td><span class="badge '+sc+'">'+escapeHtml(String(p.stock))+'</span></td>';
+      h+='<td><div class="stock-control"><input class="stock-input" type="number" min="0" step="1" value="'+escapeAttr(p.stock)+'" aria-label="Stock for '+escapeAttr(p.name)+'"/>';
+      h+='<button type="button" class="btn btn-sm btn-ghost" data-pid="'+escapeAttr(p.id)+'" onclick="saveStockFromBtn(this)">Save</button></div></td>';
       h+='<td class="subtle">'+(p.updated_at?escapeHtml(formatDt(p.updated_at)):'—')+'</td>';
       h+='<td><button type="button" class="btn btn-sm btn-primary" data-pid="'+escapeAttr(p.id)+'" onclick="showEditProductFromBtn(this)">Edit</button> ';
       h+='<button type="button" class="btn btn-sm btn-danger" data-pid="'+escapeAttr(p.id)+'" onclick="delProductFromBtn(this)">Delete</button></td>';
@@ -695,6 +973,21 @@ async function loadOrders(){
 function load(){ loadProducts(); loadOrders(); }
 
 function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
+
+function saveStockFromBtn(btn){
+  const row=btn.closest('tr');
+  const input=row?row.querySelector('.stock-input'):null;
+  if(!input)return;
+  saveStock(btn.getAttribute('data-pid'),input.value);
+}
+
+async function saveStock(id,value){
+  const stock=parseInt(value,10);
+  if(!id||Number.isNaN(stock)||stock<0){msg('Stock must be a non-negative whole number',false);return;}
+  await api('/products/'+encodeURIComponent(id)+'/stock',{method:'PATCH',body:JSON.stringify({stock:stock})});
+  msg('Stock updated',true);
+  loadProducts();
+}
 
 function showAddProduct(){
   document.getElementById('modalRoot').innerHTML=
@@ -805,7 +1098,7 @@ async function showOrderDetail(orderId){
 }
 
 updateAuthUI();
-if(TOKEN) load();
+checkSession();
 </script>
 </body>
 </html>"""

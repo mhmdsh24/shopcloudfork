@@ -22,6 +22,7 @@ enable_interface_endpoints = false
 enable_dr_replica = true
 enable_dr_compute = true
 
+eks_cluster_version     = "1.35"
 eks_node_instance_types = ["t3.small"]
 eks_node_capacity_type  = "ON_DEMAND"
 eks_node_desired_size   = 2
