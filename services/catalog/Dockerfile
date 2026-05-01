@@ -8,6 +8,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py ./
+COPY images/ ./images/
 
 RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -s /bin/bash -m app \
     && chown -R 1000:1000 /app

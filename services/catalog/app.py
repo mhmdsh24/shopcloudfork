@@ -11,8 +11,10 @@ import psycopg2
 import psycopg2.pool
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="shopcloud-catalog")
+app.mount("/images", StaticFiles(directory="images"), name="images")
 log = logging.getLogger("catalog")
 
 DB_HOST = os.environ.get("DB_HOST", "localhost")
@@ -26,11 +28,11 @@ _pool: psycopg2.pool.SimpleConnectionPool | None = None
 
 SEED_PRODUCTS = [
     ("sku-1001", "ShopCloud Hoodie", "Fleece hoodie for cloud builders.", "apparel",
-     "https://cdn.shopcloud.com/images/sku-1001.jpg", 49.00, 42),
+     "/images/sku-1001.png", 49.00, 42),
     ("sku-1002", "Kubernetes Field Notebook", "Pocket notebook for architecture sketches.", "stationery",
-     "https://cdn.shopcloud.com/images/sku-1002.jpg", 12.50, 128),
+     "/images/sku-1002.png", 12.50, 128),
     ("sku-1003", "Infrastructure Mug", "Ceramic mug for long apply sessions.", "accessories",
-     "https://cdn.shopcloud.com/images/sku-1003.jpg", 16.00, 67),
+     "/images/sku-1003.png", 16.00, 67),
 ]
 
 
@@ -93,12 +95,22 @@ def _init_schema() -> None:
                 log.info("Seeded %d products", len(SEED_PRODUCTS))
 
 
+def _update_image_urls() -> None:
+    try:
+        with _db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE products SET image_url = '/images/' || id || '.png' WHERE image_url LIKE 'https://cdn.shopcloud.com/images/%'")
+                log.info("Updated existing image URLs")
+    except Exception as e:
+        log.error("Failed to update image URLs: %s", e)
+
 @app.on_event("startup")
 def startup() -> None:
     if SKIP_DB_SCHEMA_INIT:
         log.info("Skipping catalog schema initialization")
         return
     _init_schema()
+    _update_image_urls()
 
 
 def _row_to_dict(row, columns) -> dict[str, Any]:
