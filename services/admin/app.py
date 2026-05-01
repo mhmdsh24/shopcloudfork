@@ -15,6 +15,7 @@ import requests as http_requests
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from jose import JWTError, jwt
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 
 app = FastAPI(title="shopcloud-admin")
@@ -271,67 +272,215 @@ def get_order(order_id: str, _: dict = Depends(admin_required)) -> dict:
 # Admin dashboard HTML
 # ---------------------------------------------------------------------------
 
-_ADMIN_HTML = """<!doctype html>
+_ADMIN_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>ShopCloud Admin</title>
+<meta name="theme-color" content="#0B0E14"/>
+<title>ShopCloud — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0}
-.top{background:#1e293b;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155}
-.top h1{font-size:20px;color:#38bdf8}
-.top .actions{display:flex;gap:8px}
-#loginSection input{background:#0f172a;border:1px solid #475569;color:#e2e8f0;padding:6px 10px;border-radius:6px;font-size:13px}
-.wrap{max-width:1200px;margin:0 auto;padding:24px}
-.tabs{display:flex;gap:8px;margin-bottom:20px}
-.tab{padding:8px 16px;border-radius:8px;cursor:pointer;border:1px solid #334155;background:#1e293b;color:#94a3b8;font-size:14px}
-.tab.active{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
-table{width:100%;border-collapse:collapse;font-size:14px}
-th{text-align:left;padding:10px;background:#1e293b;color:#94a3b8;border-bottom:1px solid #334155;font-weight:600}
-td{padding:10px;border-bottom:1px solid #1e293b}
-tr:hover{background:#1e293b}
-.badge{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:600}
-.badge-ok{background:#065f46;color:#6ee7b7}
-.badge-warn{background:#78350f;color:#fbbf24}
-.btn{padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600}
-.btn-primary{background:#0ea5e9;color:#fff}
-.btn-danger{background:#dc2626;color:#fff}
-.btn-sm{padding:4px 10px;font-size:12px}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100}
-.modal{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:24px;width:480px;max-width:95vw}
-.modal h2{margin-bottom:16px;color:#38bdf8;font-size:18px}
-.field{margin-bottom:12px}
-.field label{display:block;font-size:13px;color:#94a3b8;margin-bottom:4px}
-.field input,.field select{width:100%;padding:8px;background:#0f172a;border:1px solid #475569;border-radius:6px;color:#e2e8f0;font-size:14px}
-.msg{padding:12px;border-radius:8px;margin-bottom:16px;font-size:14px}
-.msg-err{background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d}
-.msg-ok{background:#052e16;color:#86efac;border:1px solid #166534}
-.hidden{display:none}
-.stat-row{display:flex;gap:16px;margin-bottom:24px}
-.stat{flex:1;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px}
-.stat .val{font-size:28px;font-weight:700;color:#38bdf8}
-.stat .lbl{font-size:13px;color:#94a3b8;margin-top:4px}
+:root {
+  --bg-base: #0B0E14;
+  --bg-surface: #121620;
+  --bg-glass: rgba(18, 22, 32, 0.65);
+  --bg-glass-card: rgba(255, 255, 255, 0.03);
+  --text-main: #FFFFFF;
+  --text-muted: #94A3B8;
+  --accent-cyan: #06B6D4;
+  --accent-cyan-d: #0891B2;
+  --accent-purple: #8B5CF6;
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(6, 182, 212, 0.4);
+  --shadow-glow: 0 0 24px rgba(6, 182, 212, 0.25);
+  --shadow-glow-purple: 0 0 24px rgba(139, 92, 246, 0.25);
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-display: 'Outfit', system-ui, sans-serif;
+  --radius: 20px;
+  --radius-sm: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg-base);
+  color: var(--text-main);
+  min-height: 100vh;
+  line-height: 1.6;
+  overflow-x: hidden;
+  position: relative;
+}
+.orb {
+  position: fixed; border-radius: 50%; filter: blur(120px); opacity: 0.35; z-index: -1;
+  pointer-events: none; animation: float 14s infinite alternate ease-in-out;
+}
+.orb.purple { background: var(--accent-purple); width: 500px; height: 500px; top: -150px; left: -100px; animation-delay: -2s; }
+.orb.cyan { background: var(--accent-cyan); width: 400px; height: 400px; bottom: -100px; right: -50px; }
+@keyframes float { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(30px, 40px) scale(1.1); } }
+
+.hdr-wrap { position: sticky; top: 0; z-index: 50; padding: 16px 24px 0; }
+.hdr {
+  max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  padding: 12px 24px; background: var(--bg-glass);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-light); border-radius: var(--radius);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.hdr-brand { display: flex; flex-direction: column; gap: 2px; }
+.hdr .logo { font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; color: #FFF; letter-spacing: -0.02em; }
+.hdr .logo span { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); -webkit-background-clip: text; color: transparent; }
+.hdr .tag { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
+.hdr .spacer { flex: 1; min-width: 8px; }
+.hdr-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#loginSection { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#tokenInput {
+  width: min(320px, 70vw);
+  padding: 10px 16px; background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border-light); border-radius: 999px;
+  color: var(--text-main); font-family: var(--font-body); font-size: 0.88rem;
+  transition: all 0.3s ease;
+}
+#tokenInput::placeholder { color: var(--text-muted); }
+#tokenInput:focus { outline: none; border-color: var(--accent-cyan); box-shadow: var(--shadow-glow); background: rgba(0,0,0,0.35); }
+#authStatus { font-size: 0.82rem; color: var(--text-muted); max-width: 200px; }
+
+.btn {
+  padding: 10px 18px; border-radius: 999px; border: none; cursor: pointer;
+  font-family: var(--font-display); font-size: 0.88rem; font-weight: 600; transition: all 0.25s;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-cyan), #0284C7); color: #FFF;
+  box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+}
+.btn-primary:hover { filter: brightness(1.08); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(6, 182, 212, 0.45); }
+.btn-ghost { background: transparent; border: 1px solid var(--border-light); color: var(--text-main); box-shadow: none; }
+.btn-ghost:hover { background: rgba(255,255,255,0.06); border-color: var(--text-muted); }
+.btn-danger {
+  background: linear-gradient(135deg, #DC2626, #991B1B); color: #FFF;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+}
+.btn-danger:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.btn-sm { padding: 7px 14px; font-size: 0.8rem; }
+
+.wrap { max-width: 1200px; margin: 0 auto; padding: 28px 24px 80px; }
+
+#msgBox { margin-bottom: 20px; }
+.msg { padding: 14px 18px; border-radius: var(--radius-sm); font-size: 0.92rem; font-weight: 500; border: 1px solid transparent; }
+.msg-err { background: rgba(239, 68, 68, 0.1); color: #FCA5A5; border-color: rgba(239, 68, 68, 0.25); }
+.msg-ok { background: rgba(16, 185, 129, 0.1); color: #6EE7B7; border-color: rgba(16, 185, 129, 0.22); }
+
+.stat-row { display: flex; gap: 20px; margin-bottom: 28px; flex-wrap: wrap; }
+.stat {
+  flex: 1; min-width: 160px;
+  background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius);
+  padding: 22px 24px; position: relative; overflow: hidden;
+  transition: transform 0.25s, box-shadow 0.25s;
+}
+.stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple)); opacity: 0.85; }
+.stat:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.45), var(--shadow-glow); }
+.stat .val { font-family: var(--font-display); font-size: 2rem; font-weight: 800; color: #FFF; letter-spacing: -0.02em; }
+.stat .lbl { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+.tab {
+  padding: 10px 22px; border-radius: 999px; border: 1px solid var(--border-light);
+  background: var(--bg-glass-card); color: var(--text-muted); font-family: var(--font-display);
+  font-size: 0.92rem; font-weight: 600; cursor: pointer; transition: all 0.3s;
+  backdrop-filter: blur(10px);
+}
+.tab:hover { border-color: var(--accent-purple); color: #FFF; background: rgba(139, 92, 246, 0.12); box-shadow: var(--shadow-glow-purple); }
+.tab.active {
+  background: linear-gradient(135deg, var(--accent-purple), #6D28D9); color: #FFF;
+  border-color: transparent; box-shadow: var(--shadow-glow-purple);
+}
+
+.table-wrap {
+  background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius);
+  overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+}
+.table-scroll { overflow-x: auto; }
+.toolbar-row { margin-bottom: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th {
+  text-align: left; padding: 14px 18px; background: rgba(0,0,0,0.35);
+  color: var(--text-muted); border-bottom: 1px solid var(--border-light);
+  font-weight: 700; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+}
+td { padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.04); color: #E2E8F0; }
+tbody tr { transition: background 0.2s; }
+tbody tr:hover { background: rgba(6, 182, 212, 0.06); }
+tbody tr:last-child td { border-bottom: none; }
+
+.badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em; }
+.badge-ok { background: rgba(16, 185, 129, 0.15); color: #6EE7B7; border: 1px solid rgba(16, 185, 129, 0.3); }
+.badge-warn { background: rgba(245, 158, 11, 0.12); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.28); }
+
+.hidden { display: none !important; }
+
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px;
+  animation: fadeIn 0.25s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  background: var(--bg-surface); border-radius: var(--radius); padding: 36px; width: 500px; max-width: 100%;
+  border: 1px solid var(--border-light); box-shadow: 0 24px 48px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06);
+  position: relative; overflow: hidden; animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple)); }
+@keyframes slideUp { from { opacity: 0; transform: translateY(28px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.modal h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 22px; color: #FFF; font-weight: 800; }
+.field { margin-bottom: 18px; }
+.field label {
+  display: block; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.field input, .field select {
+  width: 100%; padding: 12px 14px; border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-sm);
+  font-size: 0.95rem; background: rgba(0,0,0,0.35); color: #FFF; transition: all 0.25s; font-family: var(--font-body);
+}
+.field input:focus, .field select:focus {
+  outline: none; border-color: var(--accent-cyan); background: rgba(0,0,0,0.5);
+  box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.12);
+}
+.modal .btn-row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 26px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
-<div class="top">
-  <h1>ShopCloud Admin</h1>
-  <div class="actions">
-    <div id="loginSection">
-      <input id="tokenInput" type="password" placeholder="Paste admin JWT..." style="width:300px"/>
-      <button class="btn btn-primary" onclick="setToken()">Authenticate</button>
-    </div>
-    <span id="authStatus" style="color:#94a3b8;font-size:13px"></span>
+
+<div class="orb purple"></div>
+<div class="orb cyan"></div>
+
+<div class="hdr-wrap">
+<header class="hdr">
+  <div class="hdr-brand">
+    <div class="logo">Shop<span>Cloud</span></div>
+    <span class="tag">Operations console</span>
   </div>
+  <div class="spacer" aria-hidden="true"></div>
+  <div class="hdr-actions">
+    <div id="loginSection">
+      <input id="tokenInput" type="password" placeholder="Admin JWT…" autocomplete="off"/>
+      <button type="button" class="btn btn-primary" onclick="setToken()">Authenticate</button>
+    </div>
+    <span id="authStatus"></span>
+  </div>
+</header>
 </div>
+
 <div class="wrap">
   <div id="msgBox"></div>
   <div class="stat-row">
-    <div class="stat"><div class="val" id="statProducts">-</div><div class="lbl">Products</div></div>
-    <div class="stat"><div class="val" id="statOrders">-</div><div class="lbl">Orders</div></div>
-    <div class="stat"><div class="val" id="statRevenue">-</div><div class="lbl">Revenue</div></div>
+    <div class="stat"><div class="val" id="statProducts">—</div><div class="lbl">Products</div></div>
+    <div class="stat"><div class="val" id="statOrders">—</div><div class="lbl">Orders</div></div>
+    <div class="stat"><div class="val" id="statRevenue">—</div><div class="lbl">Revenue</div></div>
   </div>
   <div class="tabs">
     <div class="tab active" onclick="switchTab('products')">Products</div>
@@ -376,16 +525,16 @@ async function loadProducts(){
   try{
     const d = await api('/products');
     document.getElementById('statProducts').textContent = d.count;
-    let h='<div style="margin-bottom:12px"><button class="btn btn-primary" onclick="showAddProduct()">+ Add Product</button></div>';
-    h+='<table><tr><th>ID</th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr>';
+    let h='<div class="toolbar-row"><button type="button" class="btn btn-primary" onclick="showAddProduct()">+ Add product</button></div>';
+    h+='<div class="table-wrap"><div class="table-scroll"><table><thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead><tbody>';
     d.products.forEach(p=>{
       const sc = p.stock < 10 ? 'badge-warn' : 'badge-ok';
-      h+=`<tr><td>${p.id}</td><td>${p.name}</td><td>${p.category}</td><td>$${Number(p.price).toFixed(2)}</td>`;
+      h+=`<tr><td><code style="font-size:0.85em;opacity:.9">${p.id}</code></td><td>${p.name}</td><td>${p.category}</td><td>$${Number(p.price).toFixed(2)}</td>`;
       h+=`<td><span class="badge ${sc}">${p.stock}</span></td>`;
-      h+=`<td><button class="btn btn-sm btn-primary" onclick="showEditProduct('${p.id}')">Edit</button> `;
-      h+=`<button class="btn btn-sm btn-danger" onclick="delProduct('${p.id}')">Del</button></td></tr>`;
+      h+=`<td><button type="button" class="btn btn-sm btn-primary" onclick="showEditProduct('${p.id}')">Edit</button> `;
+      h+=`<button type="button" class="btn btn-sm btn-danger" onclick="delProduct('${p.id}')">Delete</button></td></tr>`;
     });
-    h+='</table>';
+    h+='</tbody></table></div></div>';
     document.getElementById('productsTab').innerHTML=h;
   }catch(e){}
 }
@@ -396,13 +545,13 @@ async function loadOrders(){
     document.getElementById('statOrders').textContent = d.count;
     const rev = d.orders.reduce((s,o)=>s+o.total,0);
     document.getElementById('statRevenue').textContent = '$'+rev.toFixed(2);
-    let h='<table><tr><th>Order ID</th><th>Email</th><th>Total</th><th>Status</th><th>Date</th></tr>';
+    let h='<div class="table-wrap"><div class="table-scroll"><table><thead><tr><th>Order ID</th><th>Email</th><th>Total</th><th>Status</th><th>Date</th></tr></thead><tbody>';
     d.orders.forEach(o=>{
-      h+=`<tr><td>${o.id}</td><td>${o.customer_email}</td><td>$${Number(o.total).toFixed(2)}</td>`;
+      h+=`<tr><td><code style="font-size:0.85em;opacity:.9">${o.id}</code></td><td>${o.customer_email}</td><td>$${Number(o.total).toFixed(2)}</td>`;
       h+=`<td><span class="badge badge-ok">${o.status}</span></td>`;
-      h+=`<td>${o.created_at?new Date(o.created_at).toLocaleString():'-'}</td></tr>`;
+      h+=`<td>${o.created_at?new Date(o.created_at).toLocaleString():'—'}</td></tr>`;
     });
-    h+='</table>';
+    h+='</tbody></table></div></div>';
     document.getElementById('ordersTab').innerHTML=h;
   }catch(e){}
 }
@@ -422,9 +571,9 @@ function showAddProduct(){
     <div class="field"><label>Image URL</label><input id="pImg"/></div>
     <div class="field"><label>Price</label><input id="pPrice" type="number" step="0.01"/></div>
     <div class="field"><label>Stock</label><input id="pStock" type="number"/></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="addProduct()">Create</button>
+    <div class="btn-row">
+      <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="addProduct()">Create</button>
     </div>
   </div></div>`;
 }
@@ -450,9 +599,9 @@ async function showEditProduct(id){
     <div class="field"><label>Image URL</label><input id="eImg" value="${p.image_url||''}"/></div>
     <div class="field"><label>Price</label><input id="ePrice" type="number" step="0.01" value="${p.price}"/></div>
     <div class="field"><label>Stock</label><input id="eStock" type="number" value="${p.stock}"/></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="editProduct('${id}')">Save</button>
+    <div class="btn-row">
+      <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="editProduct('${id}')">Save</button>
     </div>
   </div></div>`;
 }
