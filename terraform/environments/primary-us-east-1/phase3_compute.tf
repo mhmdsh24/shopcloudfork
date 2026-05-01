@@ -36,6 +36,10 @@ module "cognito" {
   admin_logout_urls        = ["https://admin.internal.${var.domain_name}/auth/logout"]
 
   tags = local.common_tags
+
+  # Ensure the bootstrap `pending` secret version exists before Cognito writes
+  # the final pool/client IDs, so AWSCURRENT ends on the real config.
+  depends_on = [module.secrets]
 }
 
 # ----------------------------------------------------------
@@ -48,7 +52,7 @@ module "sqs_lambda" {
   invoice_bucket_id  = module.s3_invoices.bucket_id
   invoice_bucket_arn = module.s3_invoices.bucket_arn
   ses_domain         = var.domain_name
-  ses_from_address   = "invoices@${var.domain_name}"
+  ses_from_address   = var.invoice_sender_email != "" ? var.invoice_sender_email : "invoices@${var.domain_name}"
 
   tags = local.common_tags
 }
@@ -298,6 +302,7 @@ locals {
             "autoscaling:DescribeTags",
             "ec2:DescribeInstanceTypes",
             "ec2:DescribeLaunchTemplateVersions",
+            "eks:DescribeNodegroup",
           ]
           Resource = "*"
         },

@@ -11,6 +11,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from decimal import Decimal
+from email.message import EmailMessage
 
 import boto3
 from reportlab.lib.pagesizes import letter
@@ -99,30 +100,35 @@ def _put_invoice(order_id: str, pdf_bytes: bytes) -> str:
     return key
 
 
-def _send_email(to_email: str, order_id: str, s3_key: str) -> None:
-    ses.send_email(
+def _send_email(to_email: str, order_id: str, s3_key: str, pdf_bytes: bytes) -> None:
+    msg = EmailMessage()
+    msg["Subject"] = f"Your ShopCloud invoice for order {order_id}"
+    msg["From"] = SES_FROM_ADDRESS
+    msg["To"] = to_email
+    msg.set_content(
+        f"Thanks for your order {order_id}.\n\n"
+        f"A PDF invoice is attached.\n"
+        f"Archive copy: s3://{INVOICE_BUCKET}/{s3_key}\n"
+    )
+    msg.add_alternative(
+        (
+            f"<p>Thanks for your order <b>{order_id}</b>.</p>"
+            f"<p>A PDF invoice is attached.</p>"
+            f"<p>Archive copy: <code>s3://{INVOICE_BUCKET}/{s3_key}</code></p>"
+        ),
+        subtype="html",
+    )
+    msg.add_attachment(
+        pdf_bytes,
+        maintype="application",
+        subtype="pdf",
+        filename=f"shopcloud-invoice-{order_id}.pdf",
+    )
+
+    ses.send_raw_email(
         Source=SES_FROM_ADDRESS,
-        Destination={"ToAddresses": [to_email]},
-        Message={
-            "Subject": {
-                "Data": f"Your ShopCloud invoice for order {order_id}"
-            },
-            "Body": {
-                "Html": {
-                    "Data": (
-                        f"<p>Thanks for your order <b>{order_id}</b>.</p>"
-                        f"<p>Your invoice is stored at "
-                        f"<code>s3://{INVOICE_BUCKET}/{s3_key}</code>.</p>"
-                    )
-                },
-                "Text": {
-                    "Data": (
-                        f"Thanks for your order {order_id}. "
-                        f"Invoice: s3://{INVOICE_BUCKET}/{s3_key}"
-                    )
-                },
-            },
-        },
+        Destinations=[to_email],
+        RawMessage={"Data": msg.as_bytes()},
     )
 
 
@@ -143,7 +149,7 @@ def lambda_handler(event, context):
             order = _parse_event(record)
             pdf = _render_pdf(order)
             key = _put_invoice(order["order_id"], pdf)
-            _send_email(order["customer_email"], order["order_id"], key)
+            _send_email(order["customer_email"], order["order_id"], key, pdf)
             log.info("processed order=%s key=%s", order["order_id"], key)
         except Exception:
             log.exception("failed to process record %s", message_id)

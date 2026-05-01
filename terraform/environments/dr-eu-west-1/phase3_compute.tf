@@ -250,6 +250,7 @@ locals {
             "autoscaling:DescribeTags",
             "ec2:DescribeInstanceTypes",
             "ec2:DescribeLaunchTemplateVersions",
+            "eks:DescribeNodegroup",
           ]
           Resource = "*"
         },

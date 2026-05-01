@@ -200,6 +200,12 @@ variable "domain_name" {
   default     = "shopcloud.com"
 }
 
+variable "invoice_sender_email" {
+  description = "Verified SES email identity used as the From address for invoice emails. Leave empty to use invoices@domain_name once the domain is verified."
+  type        = string
+  default     = ""
+}
+
 ############################################################
 # Phase 4 - Edge & Access
 ############################################################

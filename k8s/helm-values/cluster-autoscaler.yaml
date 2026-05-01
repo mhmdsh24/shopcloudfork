@@ -1,14 +1,17 @@
 # helm repo add autoscaler https://kubernetes.github.io/autoscaler
-# helm upgrade --install cluster-autoscaler autoscaler/cluster-autoscaler \
-#   -n kube-system -f cluster-autoscaler.yaml
+# Prefer scripts/install-cluster-autoscaler.ps1 so the IRSA role ARN is
+# injected before Helm applies the chart.
 autoDiscovery:
   clusterName: shopcloud-primary
 awsRegion: us-east-1
+image:
+  tag: v1.30.0
 rbac:
   serviceAccount:
     create: true
     name: cluster-autoscaler
     annotations:
+      # Required: override this placeholder before install/upgrade.
       eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/shopcloud-primary-irsa-cluster-autoscaler
 extraArgs:
   balance-similar-node-groups: true

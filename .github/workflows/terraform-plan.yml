@@ -46,7 +46,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p terraform/modules/sqs-lambda/build/lambda
-          python3 -m pip install -r terraform/modules/sqs-lambda/lambda/requirements.txt -t terraform/modules/sqs-lambda/build/lambda
+          python3 -m pip install -r terraform/modules/sqs-lambda/lambda/requirements.txt -t terraform/modules/sqs-lambda/build/lambda \
+            --platform manylinux2014_x86_64 \
+            --implementation cp \
+            --python-version 3.12 \
+            --only-binary=:all:
           cp terraform/modules/sqs-lambda/lambda/handler.py terraform/modules/sqs-lambda/build/lambda/
 
       - run: terraform fmt -check -recursive

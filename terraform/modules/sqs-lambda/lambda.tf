@@ -14,6 +14,8 @@ resource "terraform_data" "lambda_build" {
   triggers_replace = {
     requirements_hash = filesha256("${path.module}/lambda/requirements.txt")
     handler_hash      = filesha256("${path.module}/lambda/handler.py")
+    # Force a rebuild when the cross-platform packaging strategy changes.
+    packaging_target = "manylinux2014_x86_64-cp312"
   }
 
   provisioner "local-exec" {
@@ -34,6 +36,10 @@ subprocess.check_call([
     sys.executable, "-m", "pip", "install",
     "-r", str(module_path / "lambda" / "requirements.txt"),
     "-t", str(build_dir),
+    "--platform", "manylinux2014_x86_64",
+    "--implementation", "cp",
+    "--python-version", "3.12",
+    "--only-binary=:all:",
 ])
 shutil.copy2(module_path / "lambda" / "handler.py", build_dir / "handler.py")
     EOT
@@ -137,6 +143,7 @@ resource "aws_lambda_function" "invoice" {
   role          = aws_iam_role.lambda.arn
   handler       = "handler.lambda_handler"
   runtime       = "python3.12"
+  architectures = ["x86_64"]
 
   filename         = data.archive_file.invoice_lambda.output_path
   source_code_hash = data.archive_file.invoice_lambda.output_base64sha256

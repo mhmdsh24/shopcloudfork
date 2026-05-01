@@ -37,8 +37,9 @@ github_repo = "shopcloud"
 # Domain + email.
 ############################################################
 
-domain_name = "shopcloud.com"
-alert_email = ""
+domain_name          = "shopcloud.com"
+invoice_sender_email = "shopcloud.eece503q@gmail.com"
+alert_email          = ""
 
 ############################################################
 # Phase 4 toggles
@@ -48,7 +49,7 @@ enable_domain             = false
 enable_cloudfront         = true
 enable_vpn                = true
 enable_cloudtrail         = false
-vpn_mfa_saml_provider_arn = ""   # cert-only auth; set a real SAML provider ARN to add MFA
+vpn_mfa_saml_provider_arn = "" # cert-only auth; set a real SAML provider ARN to add MFA
 
 ############################################################
 # RDS PostgreSQL

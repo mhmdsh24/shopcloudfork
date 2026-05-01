@@ -1,15 +1,16 @@
 # helm repo add eks https://aws.github.io/eks-charts
-# helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
-#   -n kube-system -f aws-lb-controller.yaml
+# Prefer scripts/install-aws-lb-controller.ps1 so vpcId and the IRSA role ARN
+# are injected before Helm applies the chart.
 clusterName: shopcloud-primary
 region: us-east-1
-vpcId: ""        # override at install time: --set vpcId=$(terraform output -raw vpc_id)
+vpcId: ""        # required: inject with --set vpcId=<eks-vpc-id>
 image:
   tag: v2.8.2
 serviceAccount:
   create: true
   name: aws-load-balancer-controller
   annotations:
+    # Required: override this placeholder before install/upgrade.
     eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/shopcloud-primary-irsa-aws-lb-controller
 replicaCount: 2
 resources:

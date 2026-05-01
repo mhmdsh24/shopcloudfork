@@ -327,11 +327,21 @@ a{color:#0ea5e9;text-decoration:none}
 
 <script>
 /* ---- State ---- */
-let SID = localStorage.getItem('sc_sid');
-if(!SID){SID=crypto.randomUUID();localStorage.setItem('sc_sid',SID)}
-let AUTH = localStorage.getItem('sc_token')||'';
-let USER_EMAIL = localStorage.getItem('sc_email')||'';
-let cart = {items:[]};
+function makeSessionId(){
+  const c=window.crypto;
+  if(c&&typeof c.randomUUID==='function') return c.randomUUID();
+  if(c&&typeof c.getRandomValues==='function'){
+    const bytes=new Uint8Array(16);
+    c.getRandomValues(bytes);
+    return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  return 'sid-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
+}
+var SID = localStorage.getItem('sc_sid');
+if(!SID){SID=makeSessionId();localStorage.setItem('sc_sid',SID)}
+var AUTH = localStorage.getItem('sc_token')||'';
+var USER_EMAIL = localStorage.getItem('sc_email')||'';
+var cart = {items:[]};
 
 /* ---- Helpers ---- */
 function $(id){return document.getElementById(id)}
@@ -348,13 +358,19 @@ async function loadCategories(){
 }
 
 async function loadProducts(){
-  const q=$('q').value.trim(), cat=$('category').value;
-  let url='/api/catalog/products';
-  if(q.length>0) url='/api/catalog/search?q='+encodeURIComponent(q);
-  else if(cat) url='/api/catalog/products?category='+encodeURIComponent(cat);
-  const r=await fetch(url);
-  const d=await r.json();
-  renderProducts(d.products||d.results||[]);
+  try{
+    const q=$('q').value.trim(), cat=$('category').value;
+    let url='/api/catalog/products';
+    if(q.length>0) url='/api/catalog/search?q='+encodeURIComponent(q);
+    else if(cat) url='/api/catalog/products?category='+encodeURIComponent(cat);
+    const r=await fetch(url);
+    if(!r.ok) throw new Error('Catalog request failed: '+r.status);
+    const d=await r.json();
+    renderProducts(d.products||d.results||[]);
+  }catch(e){
+    console.error('products',e);
+    $('products').innerHTML='<div class="empty">Products unavailable</div>';
+  }
 }
 
 function renderProducts(list){
@@ -616,7 +632,7 @@ function showConfirmation(order,items,total){
 
 /* ---- Init ---- */
 updateAuthUI();
-loadCategories().then(loadProducts);
+loadCategories().catch(e=>console.error('categories',e)).finally(loadProducts);
 loadCart();
 </script>
 </body>
