@@ -92,7 +92,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=ci-${{ matrix.service }}
 
       - name: Scan image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: shopcloud/${{ matrix.service }}:ci-${{ github.sha }}
           format: table

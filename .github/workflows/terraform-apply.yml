@@ -46,20 +46,28 @@ jobs:
     defaults:
       run:
         working-directory: terraform/${{ matrix.env }}
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.only == 'all' || inputs.only == matrix.env }}
     steps:
+      - name: Skip unselected environment
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.only != 'all' && github.event.inputs.only != matrix.env }}
+        working-directory: .
+        run: echo "Skipping ${{ matrix.env }}"
+
       - uses: actions/checkout@v4
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.only == 'all' || github.event.inputs.only == matrix.env }}
 
       - uses: aws-actions/configure-aws-credentials@v4
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.only == 'all' || github.event.inputs.only == matrix.env }}
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/shopcloud-primary-github-deploy
           aws-region: us-east-1
 
       - uses: hashicorp/setup-terraform@v3
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.only == 'all' || github.event.inputs.only == matrix.env }}
         with:
           terraform_version: 1.14.5
 
       - name: Build invoice lambda package inputs
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.only == 'all' || github.event.inputs.only == matrix.env }}
         working-directory: .
         run: |
           set -euo pipefail
@@ -72,4 +80,6 @@ jobs:
           cp terraform/modules/sqs-lambda/lambda/handler.py terraform/modules/sqs-lambda/build/lambda/
 
       - run: terraform init -input=false
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.only == 'all' || github.event.inputs.only == matrix.env }}
       - run: terraform apply -auto-approve -input=false
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.only == 'all' || github.event.inputs.only == matrix.env }}
