@@ -451,6 +451,47 @@ tbody tr:last-child td { border-bottom: none; }
   box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.12);
 }
 .modal .btn-row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 26px; flex-wrap: wrap; }
+.modal.modal-lg { width: min(720px, 96vw); }
+textarea.field-input {
+  width: 100%; min-height: 88px; resize: vertical; padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-sm);
+  font-size: 0.95rem; background: rgba(0,0,0,0.35); color: #FFF; font-family: var(--font-body);
+  transition: all 0.25s;
+}
+textarea.field-input:focus {
+  outline: none; border-color: var(--accent-cyan); box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.12);
+}
+.lbl-hint { font-weight: 400; opacity: 0.75; text-transform: none; letter-spacing: 0; font-size: 0.7rem; }
+.prod-thumb {
+  width: 44px; height: 44px; object-fit: cover; border-radius: var(--radius-sm);
+  background: rgba(0,0,0,0.4); vertical-align: middle; border: 1px solid var(--border-light);
+}
+.prod-thumb-ph {
+  width: 44px; height: 44px; border-radius: var(--radius-sm); border: 1px dashed var(--border-light);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; color: var(--text-muted);
+}
+.cell-clamp { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell-desc { max-width: 240px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.35; }
+.mono { font-family: ui-monospace, monospace; font-size: 0.82em; }
+.badge-muted {
+  background: rgba(148, 163, 184, 0.12); color: #CBD5E1;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+.badge-bad {
+  background: rgba(239, 68, 68, 0.12); color: #FCA5A5;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+.select-limit {
+  padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border-light);
+  background: rgba(0,0,0,0.35); color: #FFF; font-family: var(--font-body); font-size: 0.85rem;
+}
+.capabilities-hint {
+  font-size: 0.84rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; padding: 14px 18px;
+  background: var(--bg-glass-card); border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+}
+.detail-meta { display: grid; gap: 8px; margin-bottom: 18px; font-size: 0.88rem; color: var(--text-muted); }
+.detail-meta div strong { color: #fff; font-weight: 600; margin-right: 6px; }
+.subtle { font-size: 0.78rem; color: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -467,15 +508,22 @@ tbody tr:last-child td { border-bottom: none; }
   <div class="spacer" aria-hidden="true"></div>
   <div class="hdr-actions">
     <div id="loginSection">
-      <input id="tokenInput" type="password" placeholder="Admin JWT…" autocomplete="off"/>
+      <input id="tokenInput" type="password" placeholder="Admin JWT (Cognito admin pool)…" autocomplete="off"/>
       <button type="button" class="btn btn-primary" onclick="setToken()">Authenticate</button>
     </div>
+    <button type="button" class="btn btn-ghost hidden" id="btnRefresh" onclick="load()">Refresh</button>
+    <button type="button" class="btn btn-ghost hidden" id="btnSignOut" onclick="clearToken()">Sign out</button>
     <span id="authStatus"></span>
   </div>
 </header>
 </div>
 
 <div class="wrap">
+  <p class="capabilities-hint" id="capHint">
+    <strong style="color:#fff">This console maps to the admin API:</strong>
+    Products — list (all fields), create, update, delete.
+    Orders — list with adjustable limit (API default 50, max 200), read-only; open any order for line items (<code class="mono">GET /api/admin/orders/{id}</code>).
+  </p>
   <div id="msgBox"></div>
   <div class="stat-row">
     <div class="stat"><div class="val" id="statProducts">—</div><div class="lbl">Products</div></div>
@@ -483,11 +531,11 @@ tbody tr:last-child td { border-bottom: none; }
     <div class="stat"><div class="val" id="statRevenue">—</div><div class="lbl">Revenue</div></div>
   </div>
   <div class="tabs">
-    <div class="tab active" onclick="switchTab('products')">Products</div>
-    <div class="tab" onclick="switchTab('orders')">Orders</div>
+    <div class="tab active" data-tab="products" onclick="switchTab('products')">Products</div>
+    <div class="tab" data-tab="orders" onclick="switchTab('orders')">Orders</div>
   </div>
-  <div id="productsTab"></div>
-  <div id="ordersTab" class="hidden"></div>
+  <div id="productsTab"><p class="subtle">Authenticate to load products.</p></div>
+  <div id="ordersTab" class="hidden"><p class="subtle">Authenticate to load orders.</p></div>
 </div>
 <div id="modalRoot"></div>
 <script>
@@ -496,43 +544,114 @@ const API = '/api/admin';
 
 function hdr(){ return {Authorization:'Bearer '+TOKEN,'Content-Type':'application/json'} }
 
+function escapeHtml(s){
+  if(s==null)return '';
+  const d=document.createElement('div'); d.textContent=String(s); return d.innerHTML;
+}
+function escapeAttr(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function fmtApiErr(detail){
+  if(detail==null) return 'Request failed';
+  if(typeof detail==='string') return detail;
+  if(Array.isArray(detail)) return detail.map(x=>x.msg||x.type||JSON.stringify(x)).join('; ');
+  return JSON.stringify(detail);
+}
+function orderStatusClass(st){
+  const u=String(st||'').toLowerCase();
+  if(/fail|cancel|void|refund/.test(u)) return 'badge-bad';
+  if(/pending|process|hold|draft/.test(u)) return 'badge-warn';
+  if(/paid|complet|ship|confirm|ok|success/.test(u)) return 'badge-ok';
+  return 'badge-muted';
+}
+function formatDt(iso){
+  if(!iso) return '—';
+  try{ return new Date(iso).toLocaleString(); }catch(_){ return iso; }
+}
+
+function updateAuthUI(){
+  const has=!!TOKEN;
+  document.getElementById('btnRefresh').classList.toggle('hidden',!has);
+  document.getElementById('btnSignOut').classList.toggle('hidden',!has);
+  document.getElementById('authStatus').textContent=has
+    ? 'Authenticated'
+    : 'Paste a valid admin pool JWT, then Authenticate.';
+}
+
 function setToken(){
-  TOKEN = document.getElementById('tokenInput').value.trim();
-  localStorage.setItem('admin_token', TOKEN);
+  TOKEN=document.getElementById('tokenInput').value.trim();
+  localStorage.setItem('admin_token',TOKEN);
+  updateAuthUI();
   load();
 }
 
+function clearToken(){
+  TOKEN='';
+  localStorage.removeItem('admin_token');
+  document.getElementById('tokenInput').value='';
+  updateAuthUI();
+  document.getElementById('statProducts').textContent='—';
+  document.getElementById('statOrders').textContent='—';
+  document.getElementById('statRevenue').textContent='—';
+  document.getElementById('productsTab').innerHTML='<p class="subtle">Authenticate to manage products.</p>';
+  document.getElementById('ordersTab').innerHTML='<p class="subtle">Authenticate to view orders.</p>';
+}
+
 function msg(text, ok){
-  const b = document.getElementById('msgBox');
-  b.innerHTML = '<div class="msg '+(ok?'msg-ok':'msg-err')+'">'+text+'</div>';
-  setTimeout(()=>b.innerHTML='', 4000);
+  const b=document.getElementById('msgBox');
+  b.innerHTML='<div class="msg '+(ok?'msg-ok':'msg-err')+'">'+escapeHtml(text)+'</div>';
+  setTimeout(()=>b.innerHTML='',5000);
 }
 
 async function api(path, opts={}){
-  const r = await fetch(API+path, {headers:hdr(),...opts});
-  if(r.status===401){msg('Unauthorized — paste a valid admin JWT',false);throw new Error('401')}
-  if(!r.ok){const e=await r.json().catch(()=>({}));msg(e.detail||r.statusText,false);throw new Error(r.status)}
+  const r=await fetch(API+path,{headers:hdr(),...opts});
+  if(r.status===401){msg('Unauthorized — check admin JWT (Bearer) for Cognito admin app client',false);throw new Error('401')}
+  if(!r.ok){
+    const e=await r.json().catch(()=>({}));
+    msg(fmtApiErr(e.detail)||r.statusText,false);
+    throw new Error(String(r.status));
+  }
   return r.json();
 }
 
 function switchTab(t){
-  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',el.textContent.toLowerCase()===t));
+  document.querySelectorAll('.tab').forEach(el=>{
+    const name=el.getAttribute('data-tab');
+    el.classList.toggle('active',name===t);
+  });
   document.getElementById('productsTab').classList.toggle('hidden',t!=='products');
   document.getElementById('ordersTab').classList.toggle('hidden',t!=='orders');
 }
 
+function prodThumb(p){
+  const u=(p.image_url||'').trim();
+  if(!u) return '<span class="prod-thumb-ph" title="No image">—</span>';
+  const safe=escapeAttr(u);
+  return '<img class="prod-thumb" src="'+safe+'" alt="" loading="lazy" referrerpolicy="no-referrer"/>';
+}
+
 async function loadProducts(){
   try{
-    const d = await api('/products');
-    document.getElementById('statProducts').textContent = d.count;
-    let h='<div class="toolbar-row"><button type="button" class="btn btn-primary" onclick="showAddProduct()">+ Add product</button></div>';
-    h+='<div class="table-wrap"><div class="table-scroll"><table><thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead><tbody>';
+    const d=await api('/products');
+    document.getElementById('statProducts').textContent=d.count;
+    let h='<div class="toolbar-row"><button type="button" class="btn btn-primary" onclick="showAddProduct()">+ Add product</button><span class="subtle">'+escapeHtml(d.count)+' SKU(s) · columns match <code class="mono">GET /api/admin/products</code></span></div>';
+    h+='<div class="table-wrap"><div class="table-scroll"><table><thead><tr><th></th><th>ID</th><th>Name</th><th>Description</th><th>Category</th><th>Price</th><th>Stock</th><th>Updated</th><th>Actions</th></tr></thead><tbody>';
     d.products.forEach(p=>{
-      const sc = p.stock < 10 ? 'badge-warn' : 'badge-ok';
-      h+=`<tr><td><code style="font-size:0.85em;opacity:.9">${p.id}</code></td><td>${p.name}</td><td>${p.category}</td><td>$${Number(p.price).toFixed(2)}</td>`;
-      h+=`<td><span class="badge ${sc}">${p.stock}</span></td>`;
-      h+=`<td><button type="button" class="btn btn-sm btn-primary" onclick="showEditProduct('${p.id}')">Edit</button> `;
-      h+=`<button type="button" class="btn btn-sm btn-danger" onclick="delProduct('${p.id}')">Delete</button></td></tr>`;
+      const sc=p.stock<10?'badge-warn':'badge-ok';
+      const desc=(p.description||'').trim();
+      const descShort=desc.length>100?desc.slice(0,100)+'…':desc;
+      h+='<tr>';
+      h+='<td>'+prodThumb(p)+'</td>';
+      h+='<td><span class="mono">'+escapeHtml(p.id)+'</span></td>';
+      h+='<td class="cell-clamp" title="'+escapeAttr(p.name)+'">'+escapeHtml(p.name)+'</td>';
+      h+='<td class="cell-desc" title="'+escapeAttr(desc)+'">'+(desc?escapeHtml(descShort):'<span class="subtle">—</span>')+'</td>';
+      h+='<td>'+escapeHtml(p.category)+'</td>';
+      h+='<td>$'+Number(p.price).toFixed(2)+'</td>';
+      h+='<td><span class="badge '+sc+'">'+escapeHtml(String(p.stock))+'</span></td>';
+      h+='<td class="subtle">'+(p.updated_at?escapeHtml(formatDt(p.updated_at)):'—')+'</td>';
+      h+='<td><button type="button" class="btn btn-sm btn-primary" data-pid="'+escapeAttr(p.id)+'" onclick="showEditProductFromBtn(this)">Edit</button> ';
+      h+='<button type="button" class="btn btn-sm btn-danger" data-pid="'+escapeAttr(p.id)+'" onclick="delProductFromBtn(this)">Delete</button></td>';
+      h+='</tr>';
     });
     h+='</tbody></table></div></div>';
     document.getElementById('productsTab').innerHTML=h;
@@ -541,18 +660,35 @@ async function loadProducts(){
 
 async function loadOrders(){
   try{
-    const d = await api('/orders?limit=100');
-    document.getElementById('statOrders').textContent = d.count;
-    const rev = d.orders.reduce((s,o)=>s+o.total,0);
-    document.getElementById('statRevenue').textContent = '$'+rev.toFixed(2);
-    let h='<div class="table-wrap"><div class="table-scroll"><table><thead><tr><th>Order ID</th><th>Email</th><th>Total</th><th>Status</th><th>Date</th></tr></thead><tbody>';
+    const prev=document.getElementById('orderLimit');
+    const lim=(prev&&prev.value)?prev.value:'100';
+    const d=await api('/orders?limit='+encodeURIComponent(lim));
+    document.getElementById('statOrders').textContent=d.count;
+    const rev=d.orders.reduce((s,o)=>s+o.total,0);
+    const cur=d.orders.length?((d.orders[0].currency||'USD').trim()||'USD'):'USD';
+    document.getElementById('statRevenue').textContent=cur+' '+rev.toFixed(2);
+    let h='<div class="toolbar-row">';
+    h+='<label class="subtle" for="orderLimit">List limit</label> ';
+    h+='<select id="orderLimit" class="select-limit" onchange="loadOrders()"><option value="50">50</option><option value="100">100</option><option value="200">200</option></select>';
+    h+='<span class="subtle">Read-only · currency &amp; transaction id · line items via View</span></div>';
+    h+='<div class="table-wrap"><div class="table-scroll"><table><thead><tr><th>Order</th><th>Email</th><th>Total</th><th>Status</th><th>Transaction</th><th>Placed</th><th></th></tr></thead><tbody>';
     d.orders.forEach(o=>{
-      h+=`<tr><td><code style="font-size:0.85em;opacity:.9">${o.id}</code></td><td>${o.customer_email}</td><td>$${Number(o.total).toFixed(2)}</td>`;
-      h+=`<td><span class="badge badge-ok">${o.status}</span></td>`;
-      h+=`<td>${o.created_at?new Date(o.created_at).toLocaleString():'—'}</td></tr>`;
+      const bc=orderStatusClass(o.status);
+      const cur=(o.currency||'').trim()||'USD';
+      h+='<tr>';
+      h+='<td><span class="mono">'+escapeHtml(o.id)+'</span></td>';
+      h+='<td class="cell-clamp" title="'+escapeAttr(o.customer_email)+'">'+escapeHtml(o.customer_email)+'</td>';
+      h+='<td><strong>'+escapeHtml(cur)+'</strong> '+Number(o.total).toFixed(2)+'</td>';
+      h+='<td><span class="badge '+bc+'">'+escapeHtml(o.status||'—')+'</span></td>';
+      h+='<td class="mono subtle">'+(o.transaction_id?escapeHtml(o.transaction_id):'—')+'</td>';
+      h+='<td class="subtle">'+escapeHtml(formatDt(o.created_at))+'</td>';
+      h+='<td><button type="button" class="btn btn-sm btn-primary" data-oid="'+escapeAttr(o.id)+'" onclick="showOrderDetailFromBtn(this)">View</button></td>';
+      h+='</tr>';
     });
     h+='</tbody></table></div></div>';
     document.getElementById('ordersTab').innerHTML=h;
+    const sel=document.getElementById('orderLimit');
+    if(sel) sel.value=lim;
   }catch(e){}
 }
 
@@ -561,66 +697,115 @@ function load(){ loadProducts(); loadOrders(); }
 function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
 
 function showAddProduct(){
-  document.getElementById('modalRoot').innerHTML=`
-  <div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">
-    <h2>Add Product</h2>
-    <div class="field"><label>ID</label><input id="pId"/></div>
-    <div class="field"><label>Name</label><input id="pName"/></div>
-    <div class="field"><label>Description</label><input id="pDesc"/></div>
-    <div class="field"><label>Category</label><input id="pCat"/></div>
-    <div class="field"><label>Image URL</label><input id="pImg"/></div>
-    <div class="field"><label>Price</label><input id="pPrice" type="number" step="0.01"/></div>
-    <div class="field"><label>Stock</label><input id="pStock" type="number"/></div>
-    <div class="btn-row">
-      <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button type="button" class="btn btn-primary" onclick="addProduct()">Create</button>
-    </div>
-  </div></div>`;
+  document.getElementById('modalRoot').innerHTML=
+  '<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">'+
+    '<h2>Add product</h2>'+
+    '<p class="subtle" style="margin-bottom:16px">Maps to <code class="mono">POST /api/admin/products</code></p>'+
+    '<div class="field"><label>ID <span class="lbl-hint">unique SKU</span></label><input id="pId" autocomplete="off"/></div>'+
+    '<div class="field"><label>Name</label><input id="pName"/></div>'+
+    '<div class="field"><label>Description</label><textarea id="pDesc" class="field-input"></textarea></div>'+
+    '<div class="field"><label>Category</label><input id="pCat"/></div>'+
+    '<div class="field"><label>Image URL <span class="lbl-hint">optional</span></label><input id="pImg" placeholder="/images/sku-1001.png"/></div>'+
+    '<div class="field"><label>Price</label><input id="pPrice" type="number" step="0.01" min="0"/></div>'+
+    '<div class="field"><label>Stock</label><input id="pStock" type="number" min="0" step="1"/></div>'+
+    '<div class="btn-row">'+
+      '<button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>'+
+      '<button type="button" class="btn btn-primary" onclick="addProduct()">Create</button>'+
+    '</div>'+
+  '</div></div>';
 }
 
 async function addProduct(){
-  const body={id:pId.value,name:pName.value,description:pDesc.value,category:pCat.value,
-    image_url:pImg.value,price:parseFloat(pPrice.value),stock:parseInt(pStock.value)||0};
+  const body={
+    id:pId.value.trim(),name:pName.value.trim(),description:pDesc.value,category:pCat.value.trim(),
+    image_url:pImg.value.trim(),price:parseFloat(pPrice.value),stock:parseInt(pStock.value,10)||0
+  };
+  if(!body.id||!body.name){msg('ID and name are required',false);return;}
   await api('/products',{method:'POST',body:JSON.stringify(body)});
-  closeModal(); msg('Product created',true); loadProducts();
+  closeModal();msg('Product created',true);loadProducts();loadOrders();
 }
 
-let _editCache={};
+function showEditProductFromBtn(el){ showEditProduct(el.getAttribute('data-pid')); }
+
 async function showEditProduct(id){
-  const d = await api('/products');
-  const p = d.products.find(x=>x.id===id); if(!p)return;
-  _editCache=p;
-  document.getElementById('modalRoot').innerHTML=`
-  <div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">
-    <h2>Edit: ${p.name}</h2>
-    <div class="field"><label>Name</label><input id="eName" value="${p.name}"/></div>
-    <div class="field"><label>Description</label><input id="eDesc" value="${p.description||''}"/></div>
-    <div class="field"><label>Category</label><input id="eCat" value="${p.category}"/></div>
-    <div class="field"><label>Image URL</label><input id="eImg" value="${p.image_url||''}"/></div>
-    <div class="field"><label>Price</label><input id="ePrice" type="number" step="0.01" value="${p.price}"/></div>
-    <div class="field"><label>Stock</label><input id="eStock" type="number" value="${p.stock}"/></div>
-    <div class="btn-row">
-      <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button type="button" class="btn btn-primary" onclick="editProduct('${id}')">Save</button>
-    </div>
-  </div></div>`;
+  if(!id)return;
+  const d=await api('/products');
+  const p=d.products.find(x=>x.id===id);
+  if(!p)return;
+  document.getElementById('modalRoot').innerHTML=
+  '<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">'+
+    '<h2>Edit product</h2>'+
+    '<input type="hidden" id="editPid" value="'+escapeAttr(id)+'"/>'+
+    '<p class="subtle" style="margin-bottom:16px"><code class="mono">PUT /api/admin/products/%s</code></p>'.replace('%s', escapeHtml(id))+
+    '<div class="field"><label>Name</label><input id="eName" value="'+escapeAttr(p.name)+'"/></div>'+
+    '<div class="field"><label>Description</label><textarea id="eDesc" class="field-input">'+escapeHtml(p.description||'')+'</textarea></div>'+
+    '<div class="field"><label>Category</label><input id="eCat" value="'+escapeAttr(p.category)+'"/></div>'+
+    '<div class="field"><label>Image URL</label><input id="eImg" value="'+escapeAttr(p.image_url||'')+'"/></div>'+
+    '<div class="field"><label>Price</label><input id="ePrice" type="number" step="0.01" min="0" value="'+escapeAttr(p.price)+'"/></div>'+
+    '<div class="field"><label>Stock</label><input id="eStock" type="number" min="0" step="1" value="'+escapeAttr(p.stock)+'"/></div>'+
+    '<div class="btn-row">'+
+      '<button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>'+
+      '<button type="button" class="btn btn-primary" onclick="submitEditProduct()">Save</button>'+
+    '</div>'+
+  '</div></div>';
 }
 
-async function editProduct(id){
-  const body={name:eName.value,description:eDesc.value,category:eCat.value,
-    image_url:eImg.value,price:parseFloat(ePrice.value),stock:parseInt(eStock.value)||0};
-  await api('/products/'+id,{method:'PUT',body:JSON.stringify(body)});
-  closeModal(); msg('Product updated',true); loadProducts();
+async function submitEditProduct(){
+  const id=document.getElementById('editPid').value;
+  if(!id)return;
+  const body={
+    name:eName.value.trim(),description:eDesc.value,category:eCat.value.trim(),
+    image_url:eImg.value.trim(),price:parseFloat(ePrice.value),stock:parseInt(eStock.value,10)||0
+  };
+  await api('/products/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(body)});
+  closeModal();msg('Product updated',true);loadProducts();
 }
+
+function delProductFromBtn(el){ delProduct(el.getAttribute('data-pid')); }
 
 async function delProduct(id){
+  if(!id)return;
   if(!confirm('Delete product '+id+'?'))return;
-  await api('/products/'+id,{method:'DELETE'});
-  msg('Product deleted',true); loadProducts();
+  await api('/products/'+encodeURIComponent(id),{method:'DELETE'});
+  msg('Product deleted',true);loadProducts();
 }
 
+function showOrderDetailFromBtn(el){ showOrderDetail(el.getAttribute('data-oid')); }
+
+async function showOrderDetail(orderId){
+  if(!orderId)return;
+  const o=await api('/orders/'+encodeURIComponent(orderId));
+  const items=o.items||[];
+  let rows='';
+  items.forEach(it=>{
+    const line=(it.quantity||0)*(it.unit_price||0);
+    rows+='<tr><td><span class="mono">'+escapeHtml(it.product_id)+'</span></td><td>'+escapeHtml(it.product_name||'')+'</td>'+
+      '<td>'+escapeHtml(String(it.quantity))+'</td><td>'+Number(it.unit_price).toFixed(2)+'</td><td><strong>'+line.toFixed(2)+'</strong></td></tr>';
+  });
+  const cur=(o.currency||'').trim()||'USD';
+  document.getElementById('modalRoot').innerHTML=
+  '<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal modal-lg">'+
+    '<h2>Order detail</h2>'+
+    '<p class="subtle" style="margin-bottom:12px"><code class="mono">GET /api/admin/orders/'+escapeHtml(o.id)+'</code> · read-only</p>'+
+    '<div class="detail-meta">'+
+      '<div><strong>Order</strong> <span class="mono">'+escapeHtml(o.id)+'</span></div>'+
+      '<div><strong>Customer</strong> '+escapeHtml(o.customer_email||'—')+'</div>'+
+      '<div><strong>Total</strong> '+escapeHtml(cur)+' '+Number(o.total).toFixed(2)+'</div>'+
+      '<div><strong>Status</strong> '+escapeHtml(o.status||'—')+'</div>'+
+      '<div><strong>Transaction</strong> '+(o.transaction_id?'<span class="mono">'+escapeHtml(o.transaction_id)+'</span>':'—')+'</div>'+
+      '<div><strong>Placed</strong> '+escapeHtml(formatDt(o.created_at))+'</div>'+
+    '</div>'+
+    '<h3 class="subtle" style="margin-bottom:10px;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.06em">Line items</h3>'+
+    '<div class="table-wrap" style="margin-bottom:0"><div class="table-scroll">'+
+    '<table><thead><tr><th>SKU</th><th>Name</th><th>Qty</th><th>Unit</th><th>Line</th></tr></thead><tbody>'+
+    (rows||'<tr><td colspan="5" class="subtle">No line items</td></tr>')+
+    '</tbody></table></div></div>'+
+    '<div class="btn-row"><button type="button" class="btn btn-primary" onclick="closeModal()">Close</button></div>'+
+  '</div></div>';
+}
+
+updateAuthUI();
 if(TOKEN) load();
-document.getElementById('authStatus').textContent = TOKEN ? 'Authenticated' : 'Not authenticated';
 </script>
 </body>
 </html>"""
