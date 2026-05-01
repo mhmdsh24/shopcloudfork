@@ -1,200 +1,6 @@
-"""Catalog service — products, categories, search backed by PostgreSQL."""
-from __future__ import annotations
+import re
 
-import logging
-import os
-import time
-from contextlib import contextmanager
-from typing import Any
-
-import psycopg2
-import psycopg2.pool
-from fastapi import FastAPI, Query
-from fastapi.responses import HTMLResponse
-
-app = FastAPI(title="shopcloud-catalog")
-log = logging.getLogger("catalog")
-
-DB_HOST = os.environ.get("DB_HOST", "localhost")
-DB_PORT = os.environ.get("DB_PORT", "5432")
-DB_NAME = os.environ.get("DB_NAME", "shopcloud")
-DB_USER = os.environ.get("DB_USER", "shopcloud_admin")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
-SKIP_DB_SCHEMA_INIT = os.environ.get("SKIP_DB_SCHEMA_INIT", "").lower() in {"1", "true", "yes"}
-
-_pool: psycopg2.pool.SimpleConnectionPool | None = None
-
-SEED_PRODUCTS = [
-    ("sku-1001", "ShopCloud Hoodie", "Fleece hoodie for cloud builders.", "apparel",
-     "https://cdn.shopcloud.com/images/sku-1001.jpg", 49.00, 42),
-    ("sku-1002", "Kubernetes Field Notebook", "Pocket notebook for architecture sketches.", "stationery",
-     "https://cdn.shopcloud.com/images/sku-1002.jpg", 12.50, 128),
-    ("sku-1003", "Infrastructure Mug", "Ceramic mug for long apply sessions.", "accessories",
-     "https://cdn.shopcloud.com/images/sku-1003.jpg", 16.00, 67),
-]
-
-
-def _get_pool() -> psycopg2.pool.SimpleConnectionPool:
-    global _pool
-    if _pool is None:
-        for attempt in range(30):
-            try:
-                _pool = psycopg2.pool.SimpleConnectionPool(
-                    1, 10,
-                    host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
-                    user=DB_USER, password=DB_PASSWORD,
-                    sslmode="require",
-                )
-                break
-            except psycopg2.OperationalError:
-                if attempt == 29:
-                    raise
-                time.sleep(2)
-    return _pool
-
-
-@contextmanager
-def _db():
-    pool = _get_pool()
-    conn = pool.getconn()
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        pool.putconn(conn)
-
-
-def _init_schema() -> None:
-    with _db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS products (
-                    id          VARCHAR(20) PRIMARY KEY,
-                    name        VARCHAR(255) NOT NULL,
-                    description TEXT,
-                    category    VARCHAR(100) NOT NULL,
-                    image_url   VARCHAR(500),
-                    price       NUMERIC(10,2) NOT NULL,
-                    stock       INTEGER NOT NULL DEFAULT 0,
-                    created_at  TIMESTAMPTZ DEFAULT NOW(),
-                    updated_at  TIMESTAMPTZ DEFAULT NOW()
-                )
-            """)
-            cur.execute("SELECT count(*) FROM products")
-            if cur.fetchone()[0] == 0:
-                cur.executemany(
-                    "INSERT INTO products (id, name, description, category, image_url, price, stock) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                    SEED_PRODUCTS,
-                )
-                log.info("Seeded %d products", len(SEED_PRODUCTS))
-
-
-@app.on_event("startup")
-def startup() -> None:
-    if SKIP_DB_SCHEMA_INIT:
-        log.info("Skipping catalog schema initialization")
-        return
-    _init_schema()
-
-
-def _row_to_dict(row, columns) -> dict[str, Any]:
-    d = dict(zip(columns, row))
-    d["price"] = float(d["price"])
-    return d
-
-
-_PRODUCT_COLS = ("id", "name", "description", "category", "image_url", "price", "stock")
-
-
-@app.get("/healthz")
-def healthz() -> dict[str, str]:
-    return {"status": "ok", "service": "catalog"}
-
-
-@app.get("/ready")
-def ready() -> dict[str, Any]:
-    try:
-        with _db() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT count(*) FROM products")
-                cnt = cur.fetchone()[0]
-        return {"ready": True, "service": "catalog", "products": cnt}
-    except Exception:
-        return {"ready": False, "service": "catalog"}
-
-
-@app.get("/", response_class=HTMLResponse)
-def storefront() -> str:
-    return _STOREFRONT_HTML
-
-
-@app.get("/api/catalog/products")
-def list_products(category: str | None = Query(default=None)) -> dict[str, Any]:
-    with _db() as conn:
-        with conn.cursor() as cur:
-            if category:
-                cur.execute(
-                    "SELECT id, name, description, category, image_url, price, stock "
-                    "FROM products WHERE category = %s ORDER BY name", (category,)
-                )
-            else:
-                cur.execute(
-                    "SELECT id, name, description, category, image_url, price, stock "
-                    "FROM products ORDER BY name"
-                )
-            rows = cur.fetchall()
-    items = [_row_to_dict(r, _PRODUCT_COLS) for r in rows]
-    return {"products": items, "count": len(items), "region": os.environ.get("AWS_REGION", "unknown")}
-
-
-@app.get("/api/catalog/categories")
-def list_categories() -> dict[str, list[str]]:
-    with _db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT DISTINCT category FROM products ORDER BY category")
-            categories = [r[0] for r in cur.fetchall()]
-    return {"categories": categories}
-
-
-@app.get("/api/catalog/search")
-def search_products(q: str = Query(min_length=1)) -> dict[str, Any]:
-    needle = f"%{q.lower().strip()}%"
-    with _db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, name, description, category, image_url, price, stock "
-                "FROM products WHERE LOWER(name) LIKE %s OR LOWER(description) LIKE %s "
-                "OR LOWER(category) LIKE %s ORDER BY name",
-                (needle, needle, needle),
-            )
-            rows = cur.fetchall()
-    items = [_row_to_dict(r, _PRODUCT_COLS) for r in rows]
-    return {"query": q, "results": items, "count": len(items)}
-
-
-@app.get("/api/catalog/products/{product_id}")
-def get_product(product_id: str) -> dict[str, Any]:
-    with _db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, name, description, category, image_url, price, stock "
-                "FROM products WHERE id = %s", (product_id,)
-            )
-            row = cur.fetchone()
-    if not row:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Product not found")
-    return _row_to_dict(row, _PRODUCT_COLS)
-
-
-# ---------------------------------------------------------------------------
-# Storefront HTML — full single-page shop with cart, checkout, auth
-# ---------------------------------------------------------------------------
-_STOREFRONT_HTML = r"""<!doctype html>
+new_html = r'''<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -792,4 +598,15 @@ loadCategories().catch(function(e){console.error('categories',e)}).finally(loadP
 loadCart();
 </script>
 </body>
-</html>"""
+</html>'''
+
+with open(r'c:\Users\Hussein\Desktop\shopcloud\services\catalog\app.py', 'r', encoding='utf-8') as f:
+    content = f.read()
+
+# Replace using regex
+pattern = re.compile(r'_STOREFRONT_HTML\s*=\s*r"""<!doctype html>.*?</html>"""', re.DOTALL)
+new_content = pattern.sub(f'_STOREFRONT_HTML = r"""{new_html}"""', content)
+
+with open(r'c:\Users\Hussein\Desktop\shopcloud\services\catalog\app.py', 'w', encoding='utf-8') as f:
+    f.write(new_content)
+print("Updated successfully")
