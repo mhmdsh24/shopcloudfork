@@ -518,7 +518,7 @@ function $(id){return document.getElementById(id)}
 function authHdr(){return AUTH?{Authorization:'Bearer '+AUTH}:{}}
 function escH(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;')}
-function safeImgUrl(u){if(!u||typeof u!=='string')return '';var t=u.trim();return /^https?:\/\//i.test(t)?t:''}
+function safeImgUrl(u){if(!u||typeof u!=='string')return '';var t=u.trim();return /^(https?:\/\/|\/)/i.test(t)?t:''}
 
 async function loadCategories(){
   const r=await fetch('/api/catalog/categories');
