@@ -6,10 +6,14 @@ import os
 from typing import Any
 
 import redis
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="shopcloud-cart")
+Instrumentator().instrument(app).expose(app)
+
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
@@ -113,8 +117,11 @@ def delete_cart(session_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail=f"Redis unavailable: {exc}") from exc
 
 
+items_added_counter = Counter("shopcloud_cart_items_added_total", "Total items added to cart")
+
 @app.post("/api/cart/{session_id}/items")
 def add_item(session_id: str, item: CartItem) -> dict[str, Any]:
+    items_added_counter.inc(item.quantity)
     try:
         cart = _read_cart(session_id)
         updated = False

@@ -9,11 +9,15 @@ from typing import Any
 
 import psycopg2
 import psycopg2.pool
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="shopcloud-catalog")
+Instrumentator().instrument(app).expose(app)
+
 app.mount("/images", StaticFiles(directory="images"), name="images")
 log = logging.getLogger("catalog")
 
@@ -172,8 +176,11 @@ def list_categories() -> dict[str, list[str]]:
     return {"categories": categories}
 
 
+searches_counter = Counter("shopcloud_searches_total", "Total searches performed")
+
 @app.get("/api/catalog/search")
 def search_products(q: str = Query(min_length=1)) -> dict[str, Any]:
+    searches_counter.inc()
     needle = f"%{q.lower().strip()}%"
     with _db() as conn:
         with conn.cursor() as cur:

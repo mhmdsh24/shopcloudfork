@@ -18,6 +18,8 @@ from jose import JWTError, jwt
 from pydantic import BaseModel
 
 app = FastAPI(title="shopcloud-admin")
+Instrumentator().instrument(app).expose(app)
+
 log = logging.getLogger("admin")
 
 region = os.environ.get("AWS_REGION", "us-east-1")

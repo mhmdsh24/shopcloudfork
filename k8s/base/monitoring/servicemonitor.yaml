@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: shopcloud-services
+  namespace: shopcloud
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      environment: production
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s

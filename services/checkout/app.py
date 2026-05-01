@@ -13,11 +13,15 @@ import boto3
 import psycopg2
 import psycopg2.pool
 from botocore.exceptions import BotoCoreError, ClientError
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 app = FastAPI(title="shopcloud-checkout")
+Instrumentator().instrument(app).expose(app)
+
 log = logging.getLogger("checkout")
 
 SQS_URL = os.environ.get("INVOICE_QUEUE_URL", "")
@@ -139,8 +143,13 @@ def _simulate_payment(order: Order) -> dict:
     }
 
 
+orders_counter = Counter("shopcloud_orders_total", "Total orders placed")
+revenue_counter = Counter("shopcloud_revenue_total", "Total revenue")
+
 @app.post("/api/checkout")
 def checkout(order: Order) -> dict:
+    orders_counter.inc()
+    revenue_counter.inc(order.total)
     if not order.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
     if order.total <= 0:

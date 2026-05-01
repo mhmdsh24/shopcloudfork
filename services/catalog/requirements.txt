@@ -2,3 +2,6 @@ fastapi==0.136.0
 starlette==0.52.1
 uvicorn[standard]==0.32.1
 psycopg2-binary==2.9.10
+
+prometheus-client==0.20.0
+prometheus-fastapi-instrumentator==7.0.0

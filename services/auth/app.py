@@ -13,6 +13,8 @@ from jose import JWTError, jwt
 from pydantic import BaseModel
 
 app = FastAPI(title="shopcloud-auth")
+Instrumentator().instrument(app).expose(app)
+
 region = os.environ.get("AWS_REGION", "us-east-1")
 cognito = boto3.client("cognito-idp", region_name=region)
 
@@ -80,8 +82,11 @@ def ready() -> dict[str, Any]:
     return {"ready": True, "service": "auth", "region": region}
 
 
+signups_counter = Counter("shopcloud_signups_total", "Total signups")
+
 @app.post("/api/auth/customer/signup")
 def customer_signup(payload: SignupRequest) -> dict[str, Any]:
+    signups_counter.inc()
     try:
         response = cognito.sign_up(
             ClientId=CUSTOMER_CLIENT_ID,
@@ -132,8 +137,11 @@ def customer_confirm(username: str = "", code: str = "") -> dict[str, Any]:
         ) from exc
 
 
+logins_counter = Counter("shopcloud_logins_total", "Total successful logins")
+
 @app.post("/api/auth/customer/login")
 def customer_login(payload: LoginRequest) -> dict[str, Any]:
+    logins_counter.inc()
     try:
         response = cognito.initiate_auth(
             ClientId=CUSTOMER_CLIENT_ID,
