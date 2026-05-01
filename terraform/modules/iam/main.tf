@@ -152,6 +152,11 @@ data "aws_iam_policy_document" "github_deploy" {
       "cognito-idp:Get*",
       "cloudfront:Get*",
       "cloudfront:List*",
+      # ACM - certificate refresh required for Terraform-managed ALB/CloudFront TLS.
+      "acm:DescribeCertificate",
+      "acm:GetCertificate",
+      "acm:ListCertificates",
+      "acm:ListTagsForCertificate",
       "route53:Get*",
       "route53:List*",
       "logs:Describe*",
@@ -224,6 +229,29 @@ data "aws_iam_policy_document" "github_deploy" {
       "cloudfront:UpdateDistribution",
     ]
     resources = ["*"]
+  }
+
+  statement {
+    sid    = "ACMCertificateApply"
+    effect = "Allow"
+    actions = [
+      "acm:AddTagsToCertificate",
+      "acm:DeleteCertificate",
+      "acm:RemoveTagsFromCertificate",
+      "acm:RequestCertificate",
+      "acm:UpdateCertificateOptions",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "TerraformManageDeployRolePolicy"
+    effect = "Allow"
+    actions = [
+      "iam:DeleteRolePolicy",
+      "iam:PutRolePolicy",
+    ]
+    resources = [aws_iam_role.github_deploy.arn]
   }
 }
 
