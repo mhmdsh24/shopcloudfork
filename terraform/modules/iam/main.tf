@@ -253,6 +253,18 @@ data "aws_iam_policy_document" "github_deploy" {
     ]
     resources = [aws_iam_role.github_deploy.arn]
   }
+
+  statement {
+    sid    = "TerraformManageEksIrsaRolePolicies"
+    effect = "Allow"
+    actions = [
+      "iam:DeleteRolePolicy",
+      "iam:PutRolePolicy",
+    ]
+    resources = [
+      "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:role/shopcloud-*-irsa-*",
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "github_deploy" {
