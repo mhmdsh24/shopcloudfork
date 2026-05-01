@@ -12,3 +12,5 @@ resources:
   - admin/admin.yaml
   - ingress/public.yaml
   - ingress/admin.yaml
+  - monitoring/barebones.yaml
+  - monitoring/dashboard.yaml
