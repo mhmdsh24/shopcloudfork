@@ -16,10 +16,18 @@
 ############################################################
 
 locals {
-  # CloudFront only needs the public ALB DNS name as an origin.
-  # enable_domain is NOT required - when false the distribution uses its
-  # default *.cloudfront.net hostname with CloudFront's own TLS cert.
-  create_cloudfront = var.enable_cloudfront && trimspace(var.primary_alb_dns_name) != ""
+  regional_alb_latency_ready = (
+    trimspace(var.primary_alb_dns_name) != "" &&
+    trimspace(var.primary_alb_zone_id) != "" &&
+    trimspace(var.dr_alb_dns_name) != "" &&
+    trimspace(var.dr_alb_zone_id) != ""
+  )
+
+  # When both regional ALBs are known, CloudFront points at an origin
+  # hostname that Route 53 resolves with latency routing. Until then,
+  # CloudFront can still use the primary ALB directly.
+  cloudfront_origin_domain_name = local.regional_alb_latency_ready && var.enable_domain ? "origin.${var.domain_name}" : var.primary_alb_dns_name
+  create_cloudfront             = var.enable_cloudfront && trimspace(local.cloudfront_origin_domain_name) != ""
 }
 
 ############################################################
@@ -78,7 +86,12 @@ module "dns" {
   dr_region             = var.dr_region
 
   cloudfront_domain_name = local.create_cloudfront ? module.cdn_waf[0].distribution_domain_name : ""
-  cloudfront_zone_id     = local.create_cloudfront ? module.cdn_waf[0].distribution_hosted_zone_id : "Z2FDTNDATAQYW2"
+  enable_cloudfront_public_alias = (
+    local.create_cloudfront &&
+    var.enable_domain &&
+    trimspace(var.route53_public_zone_id) != ""
+  )
+  cloudfront_zone_id = local.create_cloudfront ? module.cdn_waf[0].distribution_hosted_zone_id : "Z2FDTNDATAQYW2"
 
   ses_verification_token = module.sqs_lambda.ses_domain_verification_token
   ses_dkim_tokens        = module.sqs_lambda.ses_dkim_tokens
@@ -87,11 +100,12 @@ module "dns" {
 }
 
 # ----------------------------------------------------------
-# CloudFront + WAF - optional, AND requires enable_domain=true
-# because the custom alias + ACM cert both depend on a real
-# public zone. WAF itself doesn't need a domain; if you want
-# WAF without the domain stack, flip the count on just the
-# WAF resource inside modules/cdn-waf.
+# CloudFront + WAF - optional customer front door.
+#
+# When both primary_alb_* and dr_alb_* are set, CloudFront uses
+# origin.<domain> as its origin. Route 53 then resolves origin.<domain>
+# to the closest healthy regional ALB with latency routing and ALB
+# target-health evaluation.
 # ----------------------------------------------------------
 
 module "cdn_waf" {
@@ -105,7 +119,7 @@ module "cdn_waf" {
 
   name_prefix  = local.name_prefix
   domain_name  = var.domain_name
-  alb_dns_name = var.primary_alb_dns_name
+  alb_dns_name = local.cloudfront_origin_domain_name
 
   # When enable_domain = true the distribution gets a custom alias + ACM cert.
   # When enable_domain = false it uses the *.cloudfront.net URL + CloudFront's

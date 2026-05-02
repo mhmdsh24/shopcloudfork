@@ -10,6 +10,10 @@ output "distribution_hosted_zone_id" {
   value = aws_cloudfront_distribution.this.hosted_zone_id
 }
 
+output "origin_domain_name" {
+  value = var.alb_dns_name
+}
+
 output "web_acl_arn" {
   value = aws_wafv2_web_acl.cloudfront.arn
 }

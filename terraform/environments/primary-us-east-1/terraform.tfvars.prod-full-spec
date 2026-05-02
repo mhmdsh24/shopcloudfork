@@ -45,3 +45,11 @@ eks_node_capacity_type  = "ON_DEMAND"
 eks_node_desired_size   = 2
 eks_node_min_size       = 2
 eks_node_max_size       = 4
+
+# Fill these after applying the Kubernetes ingress in each region. With both
+# endpoints present, CloudFront uses origin.<domain> and Route 53 resolves that
+# origin hostname to the closest healthy regional ALB.
+# primary_alb_dns_name = "k8s-..."
+# primary_alb_zone_id  = "Z..."
+# dr_alb_dns_name      = "k8s-..."
+# dr_alb_zone_id       = "Z..."

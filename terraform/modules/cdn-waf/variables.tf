@@ -9,7 +9,7 @@ variable "domain_name" {
 }
 
 variable "alb_dns_name" {
-  description = "Origin ALB DNS name."
+  description = "CloudFront origin DNS name. Use the primary ALB DNS name for single-origin mode, or origin.<domain> when Route 53 latency records choose the regional ALB."
   type        = string
 }
 

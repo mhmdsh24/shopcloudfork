@@ -194,8 +194,23 @@ output "private_zone_id" {
   value = try(module.dns[0].private_zone_id, null)
 }
 
+output "public_routing_mode" {
+  description = "Current public Route 53 mode for the apex/app records."
+  value       = try(module.dns[0].public_routing_mode, null)
+}
+
+output "cloudfront_origin_hostname" {
+  description = "Origin hostname used by CloudFront when regional origin latency routing is active."
+  value       = try(module.dns[0].origin_hostname, null)
+}
+
 output "cloudfront_domain_name" {
   value = try(module.cdn_waf[0].distribution_domain_name, null)
+}
+
+output "cloudfront_configured_origin" {
+  description = "DNS name configured as the CloudFront origin."
+  value       = try(module.cdn_waf[0].origin_domain_name, null)
 }
 
 output "cloudfront_distribution_id" {
@@ -227,4 +242,3 @@ output "vpn_endpoint_id" {
 output "vpn_dns_name" {
   value = try(module.vpn[0].dns_name, null)
 }
-

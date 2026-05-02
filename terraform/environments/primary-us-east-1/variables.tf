@@ -223,7 +223,7 @@ variable "enable_domain" {
 }
 
 variable "enable_cloudfront" {
-  description = "Create the CloudFront + WAF distribution. Requires primary_alb_dns_name to be set. enable_domain is optional: without it the distribution uses the default *.cloudfront.net URL."
+  description = "Create the CloudFront + WAF front door. With both primary and DR ALBs configured, CloudFront uses origin.<domain>, which Route 53 resolves to the closest healthy regional ALB."
   type        = bool
   default     = false
 }

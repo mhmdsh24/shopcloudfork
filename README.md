@@ -18,7 +18,8 @@ ShopCloud uses a primary production region in `us-east-1`, a DR environment in `
 Customer
   -> Route 53 public hosted zone
   -> CloudFront custom domain, TLS, caching, WAF
-  -> Public Application Load Balancer
+  -> Route 53 latency aliases for origin.shopcloud-503q.click
+  -> nearest healthy public Application Load Balancer in us-east-1 or eu-west-1
   -> AWS Load Balancer Controller ingress
   -> EKS services: catalog, cart, checkout, auth
 
@@ -58,21 +59,26 @@ Production uses:
 
 - EKS cluster: `shopcloud-primary`
 - Public customer hostnames: `https://shopcloud-503q.click` and `https://app.shopcloud-503q.click`
+- CloudFront origin hostname: `origin.shopcloud-503q.click`
 - Private admin hostname: `admin.internal.shopcloud-503q.click`
+- Public US ALB: `k8s-shopcloudpublic-afbeb03e50-1960809462.us-east-1.elb.amazonaws.com`
+- Public EU ALB: `k8s-shopcloudpublic-dca989f5cd-486176209.eu-west-1.elb.amazonaws.com`
 - CloudFront distribution: `E3SWU5X2NYGI9E`
 - Public hosted zone: `Z03870742KSFCPI8PJWDC`
 - Private hosted zone: `Z03072971G44YK6HA4NV6`
 
 ## Customer Path
 
-Customers use HTTPS only.
+Customers enter through CloudFront. CloudFront resolves its custom origin through Route 53 latency-based routing.
 
 ```text
 Customer browser
   -> Route 53 A alias for shopcloud-503q.click or app.shopcloud-503q.click
   -> CloudFront distribution d3rr231e93c53u.cloudfront.net
   -> AWS WAF web ACL on CloudFront
-  -> Public ALB k8s-shopcloudpublic-afbeb03e50-1960809462.us-east-1.elb.amazonaws.com
+  -> CloudFront origin origin.shopcloud-503q.click
+  -> Route 53 latency alias to US public ALB k8s-shopcloudpublic-afbeb03e50-1960809462.us-east-1.elb.amazonaws.com
+     or EU public ALB k8s-shopcloudpublic-dca989f5cd-486176209.eu-west-1.elb.amazonaws.com
   -> EKS ingress shopcloud-public
   -> Service by path
 ```
@@ -87,9 +93,11 @@ Ingress routing:
 | `/api/checkout/*` | `checkout` | Checkout and order creation |
 | `/api/auth/*` | `auth` | Customer signup/login API and legacy auth helpers |
 
-CloudFront terminates TLS at the edge and redirects HTTP viewers to HTTPS. CloudFront currently has the primary public ALB as its origin because CloudFront origin groups cannot be used on a cache behavior that allows write methods such as `POST`, `PUT`, `PATCH`, and `DELETE`.
+Route 53 publishes public apex/app aliases to CloudFront, then publishes one `origin.shopcloud-503q.click` latency record for the US ALB and one for the EU ALB. Both origin aliases enable ALB target-health evaluation, so Route 53 answers CloudFront origin DNS lookups with the lowest-latency healthy region and removes an unhealthy regional ALB from DNS answers. When both ALB endpoints and CloudFront are configured, Terraform output `public_routing_mode` is `cloudfront-regional-origin-latency`.
 
-Shield Standard automatically protects CloudFront, Route 53, and ALB against common DDoS attacks. Shield Advanced is not enabled.
+CloudFront terminates viewer TLS, applies WAF, and keeps the customer hostnames stable while Route 53 chooses the regional origin behind CloudFront. If HTTPS is required from CloudFront to the ALBs, attach regional ACM certificates to the Kubernetes ingresses and set the CloudFront origin protocol policy to HTTPS.
+
+Shield Standard automatically protects Route 53, ALB, and CloudFront when CloudFront is enabled. Shield Advanced is not enabled.
 
 ## Admin Path
 
@@ -143,7 +151,7 @@ Important DR note: the DR database is a read replica. Catalog reads work in DR, 
 
 ```text
 1. Customer submits checkout in the frontend.
-2. Frontend calls /api/checkout through CloudFront and the public ALB.
+2. Frontend calls /api/checkout through CloudFront and the Route 53-selected regional origin.
 3. checkout validates the request and writes the order to PostgreSQL.
 4. checkout publishes an invoice event to SQS.
 5. SQS triggers the invoice Lambda.
@@ -161,9 +169,9 @@ SES caveat: if the AWS account is still in SES sandbox mode, both the sender and
 Network and edge security:
 
 - Route 53 public zone for customer records
+- CloudFront/WAF customer front door
+- Route 53 latency records for `origin.shopcloud-503q.click` across US/EU public ALBs with ALB target-health evaluation
 - Route 53 private zone for admin DNS
-- CloudFront HTTPS redirect and TLS termination at the edge
-- AWS WAF on CloudFront with managed common, SQLi, known-bad-inputs, and rate-limit rules
 - Shield Standard through AWS managed protection
 - Public ALB only for customer traffic
 - Internal ALB for admin traffic
@@ -312,13 +320,12 @@ The DR environment in `eu-west-1` has:
 - Image patches for ECR in `eu-west-1`
 - `SKIP_DB_SCHEMA_INIT=true` for catalog, checkout, and admin because the DR database is a read replica
 
-Do not route live checkout writes to the DR ALB until the database write strategy is solved. The DR path is currently useful for warm standby validation and read-path checks.
+Before using the EU ALB for live checkout traffic, promote or provide a write-capable DR database. The current EU database is a read replica, so checkout POSTs routed to EU will fail until the write strategy is solved.
 
 ## Known Constraints
 
-- CloudFront origin failover is not enabled because origin groups cannot be used on a behavior that allows write methods.
-- Route 53 latency routing to multiple regional ALBs would bypass CloudFront/WAF unless separate edge architecture is introduced.
-- The customer domain currently routes through CloudFront to the primary public ALB.
+- CloudFront origin selection depends on DNS resolution of `origin.shopcloud-503q.click`; Route 53 health/ALB health determines which regional origin is returned.
+- CloudFront origin groups are not used because they cannot be used on a cache behavior that allows write methods.
 - Client VPN MFA is supported by Terraform but not active until `vpn_mfa_saml_provider_arn` is configured.
 - SES may still require verified recipients if the account is in sandbox mode.
 - DR checkout writes are not safe while DR uses an RDS read replica.
@@ -328,6 +335,8 @@ Do not route live checkout writes to the DR ALB until the database write strateg
 ```powershell
 terraform -chdir=terraform/environments/primary-us-east-1 validate
 terraform -chdir=terraform/environments/primary-us-east-1 plan
+terraform -chdir=terraform/environments/primary-us-east-1 output public_routing_mode
+terraform -chdir=terraform/environments/primary-us-east-1 output cloudfront_configured_origin
 
 kubectl --context arn:aws:eks:us-east-1:${AWS_ACCOUNT_ID}:cluster/shopcloud-primary -n shopcloud get pods,ingress
 kubectl --context shopcloud-dr -n shopcloud get pods,ingress

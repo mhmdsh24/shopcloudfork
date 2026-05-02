@@ -15,7 +15,7 @@ variable "vpc_id" {
 }
 
 variable "primary_alb_dns_name" {
-  description = "Public ALB DNS name in the primary region (health-check target and failover primary)."
+  description = "Public ALB DNS name in the primary region for latency routing."
   type        = string
   default     = ""
 }
@@ -27,7 +27,7 @@ variable "primary_alb_zone_id" {
 }
 
 variable "dr_alb_dns_name" {
-  description = "Public ALB DNS name in the DR region."
+  description = "Public ALB DNS name in the DR/secondary region for latency routing."
   type        = string
   default     = ""
 }
@@ -51,9 +51,15 @@ variable "dr_region" {
 }
 
 variable "cloudfront_domain_name" {
-  description = "CloudFront distribution domain (if fronting the primary)."
+  description = "CloudFront distribution domain for the public apex/app aliases."
   type        = string
   default     = ""
+}
+
+variable "enable_cloudfront_public_alias" {
+  description = "Create public apex/app aliases to CloudFront. Kept separate from cloudfront_domain_name so Route 53 record counts are known at plan time."
+  type        = bool
+  default     = false
 }
 
 variable "cloudfront_zone_id" {

@@ -46,7 +46,9 @@ alert_email            = ""
 # Phase 4 toggles
 ############################################################
 
-enable_domain             = true
+enable_domain = true
+# Public domain -> CloudFront -> origin.shopcloud-503q.click.
+# Route 53 resolves that origin name to the closest healthy regional ALB.
 enable_cloudfront         = true
 enable_vpn                = true
 enable_cloudtrail         = false
@@ -80,7 +82,7 @@ eks_node_max_size       = 4
 # dr_invoice_bucket_arn = "arn:aws:s3:::shopcloud-invoices-replica-781863099565"
 
 ############################################################
-# CloudFront origin (public ALB)
+# Regional public ALBs for Route 53 latency routing
 ############################################################
 
 primary_alb_dns_name = "k8s-shopcloudpublic-afbeb03e50-1960809462.us-east-1.elb.amazonaws.com"

@@ -176,7 +176,7 @@ resource "aws_cloudfront_distribution" "this" {
 
   origin {
     domain_name = var.alb_dns_name
-    origin_id   = "alb-origin"
+    origin_id   = "regional-origin"
 
     custom_origin_config {
       http_port              = 80
@@ -187,7 +187,7 @@ resource "aws_cloudfront_distribution" "this" {
   }
 
   default_cache_behavior {
-    target_origin_id       = "alb-origin"
+    target_origin_id       = "regional-origin"
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods         = ["GET", "HEAD"]
