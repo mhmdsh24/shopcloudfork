@@ -17,6 +17,13 @@ module "secrets" {
   create_kms_key = true
   replica_region = var.dr_region
 
+  # dev-us-east-1's secrets already occupy the unprefixed "shopcloud/*"
+  # names in this account (both environments live in 268810572260).
+  # Without this, primary's RDS/Redis/Cognito modules would silently
+  # overwrite dev's live secret values with primary's own connection
+  # info the moment this environment applies.
+  secret_prefix = "shopcloud-primary"
+
   tags = local.common_tags
 }
 
@@ -26,7 +33,13 @@ module "secrets" {
 module "ecr" {
   source = "../../modules/ecr"
 
-  replica_region = var.dr_region
+  # dev-us-east-1 already owns the unprefixed "shopcloud/*" repos in this
+  # account. dev's own replication configuration (PREFIX_MATCH on
+  # "shopcloud") already covers these shopcloud-primary/* repos too, since
+  # AWS allows only one replication configuration per account - so
+  # replica_region stays empty here to avoid a second, colliding one.
+  name_prefix    = "shopcloud-primary"
+  replica_region = ""
   tags           = local.common_tags
 }
 
@@ -98,7 +111,10 @@ module "redis" {
 module "s3_invoices" {
   source = "../../modules/s3-invoices"
 
-  bucket_name        = "shopcloud-invoices-${data.aws_caller_identity.current.account_id}"
+  # dev-us-east-1 already owns "shopcloud-invoices-<account-id>" in this
+  # account; give primary its own bucket rather than mixing dev and
+  # production invoice PDFs together.
+  bucket_name        = "shopcloud-invoices-primary-${data.aws_caller_identity.current.account_id}"
   replica_bucket_arn = var.dr_invoice_bucket_arn
   expire_after_days  = 365
 

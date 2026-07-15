@@ -17,11 +17,28 @@ data "aws_partition" "current" {}
 # ----------------------------------------------------------
 
 resource "aws_iam_openid_connect_provider" "github" {
+  count = var.create_github_oidc_provider ? 1 : 0
+
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 
   tags = merge(local.tags, { Name = "github-actions-oidc" })
+}
+
+# When this environment doesn't own the provider (create_github_oidc_provider
+# = false), look up the one another environment in this account already
+# created - AWS allows only one per issuer URL per account, so this data
+# source lets multiple environments trust the same provider without any of
+# them risking destroying it out from under the others.
+data "aws_iam_openid_connect_provider" "github" {
+  count = var.create_github_oidc_provider ? 0 : 1
+
+  url = "https://token.actions.githubusercontent.com"
+}
+
+locals {
+  github_oidc_provider_arn = var.create_github_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github[0].arn
 }
 
 # ----------------------------------------------------------
@@ -35,7 +52,7 @@ data "aws_iam_policy_document" "github_assume" {
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
+      identifiers = [local.github_oidc_provider_arn]
     }
 
     condition {

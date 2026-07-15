@@ -48,15 +48,15 @@ jobs:
           load: true
           push: false
           tags: |
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud/${{ matrix.service }}:${{ github.sha }}
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud/${{ matrix.service }}:${{ env.TARGET_ENV }}-latest
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud-primary/${{ matrix.service }}:${{ github.sha }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud-primary/${{ matrix.service }}:${{ env.TARGET_ENV }}-latest
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
       - name: Scan image
         uses: aquasecurity/trivy-action@v0.35.0
         with:
-          image-ref: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud/${{ matrix.service }}:${{ github.sha }}
+          image-ref: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/shopcloud-primary/${{ matrix.service }}:${{ github.sha }}
           format: table
           exit-code: "1"
           ignore-unfixed: true
@@ -71,5 +71,5 @@ jobs:
           TARGET_ENV: ${{ env.TARGET_ENV }}
         run: |
           set -euo pipefail
-          docker push "$REGISTRY/shopcloud/$SERVICE:$TAG"
-          docker push "$REGISTRY/shopcloud/$SERVICE:$TARGET_ENV-latest"
+          docker push "$REGISTRY/shopcloud-primary/$SERVICE:$TAG"
+          docker push "$REGISTRY/shopcloud-primary/$SERVICE:$TARGET_ENV-latest"

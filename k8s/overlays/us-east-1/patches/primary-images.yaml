@@ -1,0 +1,65 @@
+# dev-us-east-1 already owns the unprefixed "shopcloud/*" ECR repos in this
+# account, so primary's Terraform now creates its own repos under
+# "shopcloud-primary/*" (see terraform/environments/primary-us-east-1
+# /phase2_data.tf). This patch points primary's deployments at those repos.
+# CI's account-ID/tag substitution (docker-build-push.yml, k8s-deploy.yml)
+# still applies on top of this at deploy time.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin
+  namespace: shopcloud
+spec:
+  template:
+    spec:
+      containers:
+        - name: admin
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud-primary/admin:prod-latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: shopcloud
+spec:
+  template:
+    spec:
+      containers:
+        - name: auth
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud-primary/auth:prod-latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart
+  namespace: shopcloud
+spec:
+  template:
+    spec:
+      containers:
+        - name: cart
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud-primary/cart:prod-latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog
+  namespace: shopcloud
+spec:
+  template:
+    spec:
+      containers:
+        - name: catalog
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud-primary/catalog:prod-latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+  namespace: shopcloud
+spec:
+  template:
+    spec:
+      containers:
+        - name: checkout
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/shopcloud-primary/checkout:prod-latest

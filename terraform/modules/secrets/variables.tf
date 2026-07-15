@@ -1,6 +1,12 @@
 variable "name_prefix" {
-  description = "Prefix applied to secret names."
+  description = "Prefix applied to resource names (KMS alias, tags). Does not affect Secrets Manager secret names - see secret_prefix."
   type        = string
+}
+
+variable "secret_prefix" {
+  description = "Prefix for Secrets Manager secret paths (shopcloud/db/master etc). Defaults to \"shopcloud\" to match the original single-account-per-environment design. Only override this when multiple environments share one AWS account and would otherwise collide on the same secret names - changing it for an environment whose secrets already exist and are in use will not rename the existing secrets or update anything reading them."
+  type        = string
+  default     = "shopcloud"
 }
 
 variable "create_kms_key" {

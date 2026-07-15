@@ -7,3 +7,7 @@ resources:
 commonLabels:
   region: us-east-1
   environment: production
+
+patches:
+  - path: patches/primary-secrets.yaml
+  - path: patches/primary-images.yaml

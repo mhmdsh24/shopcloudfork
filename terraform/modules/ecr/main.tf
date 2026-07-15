@@ -16,7 +16,7 @@ data "aws_caller_identity" "current" {}
 resource "aws_ecr_repository" "this" {
   for_each = toset(var.repositories)
 
-  name                 = "shopcloud/${each.key}"
+  name                 = "${var.name_prefix}/${each.key}"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
 
@@ -29,7 +29,7 @@ resource "aws_ecr_repository" "this" {
   }
 
   tags = merge(local.tags, {
-    Name    = "shopcloud/${each.key}"
+    Name    = "${var.name_prefix}/${each.key}"
     Service = each.key
   })
 }

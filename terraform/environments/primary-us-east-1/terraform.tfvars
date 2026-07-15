@@ -46,10 +46,15 @@ alert_email            = ""
 # Phase 4 toggles
 ############################################################
 
-enable_domain = true
-# Public domain -> CloudFront -> origin.shopcloud-503q.click.
-# Route 53 resolves that origin name to the closest healthy regional ALB.
-enable_cloudfront         = true
+# domain_name/route53_public_zone_id above belong to the original fork
+# author's AWS account, not this one (verified: aws route53 get-hosted-zone
+# on that zone ID returns AccessDenied - it exists, just not here, and
+# `aws route53 list-hosted-zones` returns zero zones owned by this account).
+# Leaving enable_domain/enable_cloudfront off avoids a guaranteed failure
+# in the ACM DNS-validation and Route53 record steps. VPN doesn't depend
+# on the domain (it's gated by its own enable_vpn flag), so it stays on.
+enable_domain = false
+enable_cloudfront         = false
 enable_vpn                = true
 enable_cloudtrail         = false
 vpn_mfa_saml_provider_arn = "" # cert-only auth; set a real SAML provider ARN to add MFA
@@ -98,5 +103,5 @@ dr_alb_zone_id  = "Z32O12XQLNTSW2"
 # VPN - fill in after running the cert generation script
 ############################################################
 
-vpn_server_certificate_arn      = "arn:aws:acm:us-east-1:781863099565:certificate/1bc3e3d6-e8c0-425c-b4a8-e06f8a4bb446"
-vpn_client_root_certificate_arn = "arn:aws:acm:us-east-1:781863099565:certificate/fcd44ffa-ff0e-4d53-b49e-34615ffd9c74"
+vpn_server_certificate_arn      = "arn:aws:acm:us-east-1:268810572260:certificate/215760cc-324b-4bcf-9d50-63558876bb87"
+vpn_client_root_certificate_arn = "arn:aws:acm:us-east-1:268810572260:certificate/67c081aa-fa29-4fc6-bb4b-b2d24d0cc6f2"

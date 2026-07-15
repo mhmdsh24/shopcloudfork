@@ -1,7 +1,13 @@
 variable "repositories" {
-  description = "Repository short names - final name becomes shopcloud/<name>."
+  description = "Repository short names - final name becomes <name_prefix>/<name>."
   type        = list(string)
   default     = ["catalog", "cart", "checkout", "auth", "admin"]
+}
+
+variable "name_prefix" {
+  description = "Prefix for repository names (<name_prefix>/<service>). Defaults to \"shopcloud\" to match the original single-account-per-environment design. Only override this when multiple environments share one AWS account and would otherwise collide on the same repository names."
+  type        = string
+  default     = "shopcloud"
 }
 
 variable "replica_region" {

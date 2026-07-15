@@ -16,7 +16,7 @@
 locals {
   tags = merge(var.tags, { Module = "secrets" })
 
-  secret_prefix = "shopcloud"
+  secret_prefix = var.secret_prefix
 }
 
 data "aws_caller_identity" "current" {}
@@ -205,7 +205,7 @@ resource "aws_secretsmanager_secret_version" "cognito_config_initial" {
 # ----------------------------------------------------------
 
 resource "aws_ssm_parameter" "environment" {
-  name  = "/shopcloud/config/environment"
+  name  = "/${local.secret_prefix}/config/environment"
   type  = "String"
   value = "production"
   tier  = "Standard"
@@ -213,7 +213,7 @@ resource "aws_ssm_parameter" "environment" {
 }
 
 resource "aws_ssm_parameter" "log_level" {
-  name  = "/shopcloud/config/log_level"
+  name  = "/${local.secret_prefix}/config/log_level"
   type  = "String"
   value = "info"
   tier  = "Standard"

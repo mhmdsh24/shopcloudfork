@@ -19,6 +19,12 @@ module "iam" {
   terraform_lock_table   = "shopcloud-terraform-locks"
   ecr_repository_arns    = values(module.ecr.repository_arns)
 
+  # dev-us-east-1 already created the GitHub OIDC provider in this account
+  # (AWS allows only one per issuer URL per account). Look it up instead of
+  # trying to create a second one, so a destroy of primary's state can never
+  # take down dev's CI trust.
+  create_github_oidc_provider = false
+
   tags = local.common_tags
 }
 
@@ -191,7 +197,7 @@ locals {
         {
           Effect   = "Allow"
           Action   = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"]
-          Resource = "arn:aws:ssm:${var.primary_region}:${data.aws_caller_identity.current.account_id}:parameter/shopcloud/*"
+          Resource = "arn:aws:ssm:${var.primary_region}:${data.aws_caller_identity.current.account_id}:parameter/shopcloud-primary/*"
         },
       ]
     })

@@ -3,6 +3,12 @@ variable "name_prefix" {
   type        = string
 }
 
+variable "create_github_oidc_provider" {
+  description = "Whether to create the GitHub Actions OIDC provider. AWS allows only one per issuer URL per account, so when multiple environments share an account, exactly one of them should create it (default true) and the rest should set this false to look up the existing one instead."
+  type        = bool
+  default     = true
+}
+
 variable "github_org" {
   description = "GitHub organization / user that owns the repo."
   type        = string
