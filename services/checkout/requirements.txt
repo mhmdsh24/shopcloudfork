@@ -5,4 +5,4 @@ boto3==1.39.3
 psycopg2-binary==2.9.10
 
 prometheus-client==0.20.0
-prometheus-fastapi-instrumentator==7.0.0
+prometheus-fastapi-instrumentator==8.0.2
