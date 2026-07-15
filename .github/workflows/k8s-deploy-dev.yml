@@ -79,3 +79,69 @@ jobs:
             echo "Waiting for $SVC rollout"
             kubectl -n "$NAMESPACE" rollout status "deployment/$SVC" --timeout=300s
           done
+
+      - name: Smoke test public endpoint
+        run: |
+          set -euo pipefail
+
+          # admin is intentionally excluded: its ingress is on the internal,
+          # VPN-only ALB, so a public GitHub-hosted runner can never reach it.
+          # A rollout that completes (previous step) is its only automated check.
+
+          echo "Waiting for the public ALB hostname to appear on the ingress..."
+          ALB_HOST=""
+          for i in $(seq 1 12); do
+            ALB_HOST=$(kubectl -n "$NAMESPACE" get ingress shopcloud-public -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+            if [ -n "$ALB_HOST" ]; then
+              break
+            fi
+            echo "  attempt $i: no address yet, retrying in 10s"
+            sleep 10
+          done
+          if [ -z "$ALB_HOST" ]; then
+            echo "::error::Ingress never got an ALB address"
+            exit 1
+          fi
+          echo "Testing against http://$ALB_HOST"
+
+          # check <method+path> <expected-http-status> [curl extra args...]
+          check() {
+            local desc="$1" path="$2" want="$3"
+            shift 3
+            local got
+            got=$(curl -s -o /tmp/smoke_body -w "%{http_code}" --max-time 15 "$@" "http://$ALB_HOST$path" || echo "000")
+            if [ "$got" != "$want" ]; then
+              echo "::error::$desc — expected HTTP $want, got $got"
+              echo "--- response body ---"
+              cat /tmp/smoke_body || true
+              return 1
+            fi
+            echo "OK  $desc (HTTP $got)"
+          }
+
+          # The ALB can take a little while to start actually forwarding to
+          # fresh target group registrations even after it has a hostname,
+          # so retry the first real request a few times before treating a
+          # failure as real.
+          echo "Waiting for targets to come healthy..."
+          for i in $(seq 1 12); do
+            if curl -s -o /dev/null -w "%{http_code}" --max-time 10 "http://$ALB_HOST/" | grep -q "200"; then
+              break
+            fi
+            echo "  attempt $i: storefront not ready yet, retrying in 10s"
+            sleep 10
+          done
+
+          fail=0
+          check "storefront root"        "/"                                                    "200" || fail=1
+          check "catalog products"       "/api/catalog/products"                                 "200" || fail=1
+          check "cart (default session)" "/api/cart?session_id=smoketest"                        "200" || fail=1
+          check "checkout order history" "/api/checkout/orders?email=smoketest@example.com"       "200" || fail=1
+          check "auth rejects anonymous" "/api/auth/customer/me"                                 "401" || fail=1
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Smoke test failed — see above for which check(s) failed"
+            exit 1
+          fi
+
+          echo "All smoke tests passed."
