@@ -1,50 +1,36 @@
 <#
 .SYNOPSIS
-    Install or upgrade External Secrets with the rendered IRSA role ARN.
+    Install or upgrade External Secrets using values read straight from
+    Terraform state for the named environment.
 
 .DESCRIPTION
-    The Helm values file keeps the AWS account ID as a placeholder. This helper
-    uses AWS_ACCOUNT_ID from the environment when present, verifies it against
-    the configured AWS credentials, and passes the rendered role ARN with --set.
+    The IRSA role ARN comes from `terraform output` for -Environment,
+    not from a hardcoded default. This makes it impossible to silently
+    point the controller at the wrong cluster's role.
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File scripts\install-external-secrets.ps1
+    powershell -File scripts\install-external-secrets.ps1 -Environment dev-us-east-1
 #>
 [CmdletBinding()]
 param(
-    [string] $ClusterName = "shopcloud-primary",
-    [string] $AccountId = $env:AWS_ACCOUNT_ID,
+    [Parameter(Mandatory = $true)]
+    [ValidateSet("dev-us-east-1", "primary-us-east-1", "dr-eu-west-1")]
+    [string] $Environment,
     [string] $ReleaseName = "external-secrets",
     [string] $Namespace = "external-secrets",
-    [string] $ValuesFile = "k8s/helm-values/external-secrets.yaml",
-    [string] $RoleName
+    [string] $ValuesFile = "k8s/helm-values/external-secrets.yaml"
 )
 
 $ErrorActionPreference = "Stop"
+. "$PSScriptRoot\lib\tf-outputs.ps1"
 
-if (-not $RoleName) {
-    $RoleName = "$ClusterName-irsa-external-secrets"
-}
-
-$CallerAccountId = aws sts get-caller-identity --query Account --output text
-
-if (-not $AccountId) {
-    $AccountId = $CallerAccountId
-}
-
-if (-not $AccountId) {
-    throw "Could not determine AWS account ID from AWS_ACCOUNT_ID or aws sts get-caller-identity."
-}
-
-if ($CallerAccountId -and $CallerAccountId -ne $AccountId) {
-    throw "AWS_ACCOUNT_ID '$AccountId' does not match the authenticated AWS account '$CallerAccountId'."
-}
-
-$RoleArn = "arn:aws:iam::${AccountId}:role/$RoleName"
+$shopcloud = Get-ShopCloudEnvironment -Environment $Environment
+$RoleArn = Get-ShopCloudIrsaRoleArn -ShopCloudEnvironment $shopcloud -AddonKey "external-secrets"
 
 Write-Host "=== External Secrets ==="
-Write-Host "  Cluster : $ClusterName"
-Write-Host "  Role    : $RoleArn"
+Write-Host "  Environment : $Environment"
+Write-Host "  Cluster     : $($shopcloud.ClusterName)"
+Write-Host "  Role        : $RoleArn"
 Write-Host ""
 
 helm repo add external-secrets https://charts.external-secrets.io | Out-Null

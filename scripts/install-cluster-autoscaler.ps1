@@ -1,50 +1,36 @@
 <#
 .SYNOPSIS
-    Install or upgrade Cluster Autoscaler with the rendered IRSA role ARN.
+    Install or upgrade Cluster Autoscaler using values read straight from
+    Terraform state for the named environment.
 
 .DESCRIPTION
-    The Helm values file keeps the AWS account ID as a placeholder. This helper
-    uses AWS_ACCOUNT_ID from the environment when present, verifies it against
-    the configured AWS credentials, and passes the rendered role ARN with --set.
+    Cluster name and the IRSA role ARN both come from `terraform output`
+    for -Environment, not from a hardcoded default. This makes it
+    impossible to silently point the autoscaler at the wrong cluster.
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File scripts\install-cluster-autoscaler.ps1
+    powershell -File scripts\install-cluster-autoscaler.ps1 -Environment dev-us-east-1
 #>
 [CmdletBinding()]
 param(
-    [string] $ClusterName = "shopcloud-primary",
-    [string] $AccountId = $env:AWS_ACCOUNT_ID,
+    [Parameter(Mandatory = $true)]
+    [ValidateSet("dev-us-east-1", "primary-us-east-1", "dr-eu-west-1")]
+    [string] $Environment,
     [string] $ReleaseName = "cluster-autoscaler",
     [string] $Namespace = "kube-system",
-    [string] $ValuesFile = "k8s/helm-values/cluster-autoscaler.yaml",
-    [string] $RoleName
+    [string] $ValuesFile = "k8s/helm-values/cluster-autoscaler.yaml"
 )
 
 $ErrorActionPreference = "Stop"
+. "$PSScriptRoot\lib\tf-outputs.ps1"
 
-if (-not $RoleName) {
-    $RoleName = "$ClusterName-irsa-cluster-autoscaler"
-}
-
-$CallerAccountId = aws sts get-caller-identity --query Account --output text
-
-if (-not $AccountId) {
-    $AccountId = $CallerAccountId
-}
-
-if (-not $AccountId) {
-    throw "Could not determine AWS account ID from AWS_ACCOUNT_ID or aws sts get-caller-identity."
-}
-
-if ($CallerAccountId -and $CallerAccountId -ne $AccountId) {
-    throw "AWS_ACCOUNT_ID '$AccountId' does not match the authenticated AWS account '$CallerAccountId'."
-}
-
-$RoleArn = "arn:aws:iam::${AccountId}:role/$RoleName"
+$shopcloud = Get-ShopCloudEnvironment -Environment $Environment
+$RoleArn = Get-ShopCloudIrsaRoleArn -ShopCloudEnvironment $shopcloud -AddonKey "cluster-autoscaler"
 
 Write-Host "=== Cluster Autoscaler ==="
-Write-Host "  Cluster : $ClusterName"
-Write-Host "  Role    : $RoleArn"
+Write-Host "  Environment : $Environment"
+Write-Host "  Cluster     : $($shopcloud.ClusterName)"
+Write-Host "  Role        : $RoleArn"
 Write-Host ""
 
 helm repo add autoscaler https://kubernetes.github.io/autoscaler | Out-Null
@@ -53,7 +39,7 @@ helm repo update autoscaler | Out-Null
 helm upgrade --install $ReleaseName autoscaler/cluster-autoscaler `
     -n $Namespace `
     -f $ValuesFile `
-    --set-string "autoDiscovery.clusterName=$ClusterName" `
+    --set-string "autoDiscovery.clusterName=$($shopcloud.ClusterName)" `
     --set-string "rbac.serviceAccount.annotations.eks\.amazonaws\.com/role-arn=$RoleArn"
 
 Write-Host ""

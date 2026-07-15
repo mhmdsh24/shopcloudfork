@@ -290,13 +290,20 @@ Cluster add-ons:
 - Cluster Autoscaler
 - KEDA
 
-Helper scripts render the real AWS account ID, VPC ID, and IRSA role ARN before installing Helm charts:
+Helper scripts read the cluster name, VPC ID, and IRSA role ARNs straight out of
+`terraform output` for the environment you pass with `-Environment`, so there is
+no hardcoded default to accidentally point at the wrong cluster. Each script
+refuses to run if your current AWS credentials don't match that environment's
+account:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\install-aws-lb-controller.ps1
-powershell -ExecutionPolicy Bypass -File scripts\install-external-secrets.ps1
-powershell -ExecutionPolicy Bypass -File scripts\install-cluster-autoscaler.ps1
+powershell -File scripts\install-aws-lb-controller.ps1   -Environment dev-us-east-1
+powershell -File scripts\install-external-secrets.ps1    -Environment dev-us-east-1
+powershell -File scripts\install-cluster-autoscaler.ps1  -Environment dev-us-east-1
+powershell -File scripts\install-keda.ps1                -Environment dev-us-east-1
 ```
+
+Swap `-Environment` for `primary-us-east-1` or `dr-eu-west-1` as needed.
 
 Manual app manifest apply, when needed:
 

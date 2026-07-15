@@ -1,73 +1,42 @@
 <#
 .SYNOPSIS
-    Install or upgrade the AWS Load Balancer Controller with rendered AWS values.
+    Install or upgrade the AWS Load Balancer Controller using values read
+    straight from Terraform state for the named environment.
 
 .DESCRIPTION
-    The Helm values file keeps account and VPC values as placeholders. This
-    helper uses AWS_ACCOUNT_ID from the environment when present, verifies it
-    against the configured AWS credentials, resolves the EKS VPC ID, then
-    passes both values with --set so the controller can start without relying
-    on EC2 metadata from inside a pod.
+    Cluster name, VPC ID, and the IRSA role ARN all come from
+    `terraform output` for -Environment, not from hardcoded defaults.
+    This makes it impossible to silently point the controller at the
+    wrong cluster/VPC (the exact bug that previously left every Ingress
+    stuck with "couldn't auto-discover subnets... tagged for other
+    cluster" because the values file's clusterName defaulted to
+    shopcloud-primary regardless of which cluster you were installing
+    into).
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File scripts\install-aws-lb-controller.ps1
-
-.EXAMPLE
-    $env:AWS_ACCOUNT_ID = "123456789012"
-    powershell -ExecutionPolicy Bypass -File scripts\install-aws-lb-controller.ps1
+    powershell -File scripts\install-aws-lb-controller.ps1 -Environment dev-us-east-1
 #>
 [CmdletBinding()]
 param(
-    [string] $ClusterName = "shopcloud-primary",
-    [string] $Region = $env:AWS_REGION,
-    [string] $AccountId = $env:AWS_ACCOUNT_ID,
+    [Parameter(Mandatory = $true)]
+    [ValidateSet("dev-us-east-1", "primary-us-east-1", "dr-eu-west-1")]
+    [string] $Environment,
     [string] $ReleaseName = "aws-load-balancer-controller",
     [string] $Namespace = "kube-system",
-    [string] $ValuesFile = "k8s/helm-values/aws-lb-controller.yaml",
-    [string] $RoleName
+    [string] $ValuesFile = "k8s/helm-values/aws-lb-controller.yaml"
 )
 
 $ErrorActionPreference = "Stop"
+. "$PSScriptRoot\lib\tf-outputs.ps1"
 
-if (-not $Region) {
-    $Region = "us-east-1"
-}
-
-if (-not $RoleName) {
-    $RoleName = "$ClusterName-irsa-aws-lb-controller"
-}
-
-$CallerAccountId = aws sts get-caller-identity --query Account --output text
-
-if (-not $AccountId) {
-    $AccountId = $CallerAccountId
-}
-
-if (-not $AccountId) {
-    throw "Could not determine AWS account ID from AWS_ACCOUNT_ID or aws sts get-caller-identity."
-}
-
-if ($CallerAccountId -and $CallerAccountId -ne $AccountId) {
-    throw "AWS_ACCOUNT_ID '$AccountId' does not match the authenticated AWS account '$CallerAccountId'."
-}
-
-$VpcId = aws eks describe-cluster `
-    --name $ClusterName `
-    --region $Region `
-    --query "cluster.resourcesVpcConfig.vpcId" `
-    --output text
-
-if (-not $VpcId -or $VpcId -eq "None") {
-    throw "Could not determine VPC ID for EKS cluster '$ClusterName' in '$Region'."
-}
-
-$RoleArn = "arn:aws:iam::${AccountId}:role/$RoleName"
+$shopcloud = Get-ShopCloudEnvironment -Environment $Environment
+$RoleArn = Get-ShopCloudIrsaRoleArn -ShopCloudEnvironment $shopcloud -AddonKey "aws-lb-controller"
 
 Write-Host "=== AWS Load Balancer Controller ==="
-Write-Host "  Cluster : $ClusterName"
-Write-Host "  Region  : $Region"
-Write-Host "  VPC     : $VpcId"
-Write-Host "  Role    : $RoleArn"
+Write-Host "  Environment : $Environment"
+Write-Host "  Cluster     : $($shopcloud.ClusterName)"
+Write-Host "  VPC         : $($shopcloud.VpcId)"
+Write-Host "  Role        : $RoleArn"
 Write-Host ""
 
 helm repo add eks https://aws.github.io/eks-charts | Out-Null
@@ -77,7 +46,8 @@ helm upgrade --install $ReleaseName eks/aws-load-balancer-controller `
     -n $Namespace `
     --create-namespace `
     -f $ValuesFile `
-    --set-string "vpcId=$VpcId" `
+    --set-string "clusterName=$($shopcloud.ClusterName)" `
+    --set-string "vpcId=$($shopcloud.VpcId)" `
     --set-string "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=$RoleArn"
 
 Write-Host ""
