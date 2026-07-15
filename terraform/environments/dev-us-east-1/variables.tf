@@ -151,7 +151,7 @@ variable "github_org" {
 variable "github_repo" {
   description = "GitHub repo name for OIDC deploy role trust."
   type        = string
-  default     = "shopcloud"
+  default     = "shopcloudfork"
 }
 
 variable "eks_cluster_version" {

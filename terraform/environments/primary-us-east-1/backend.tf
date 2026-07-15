@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket         = "shopcloud-tfstate-781863099565"
+    bucket         = "shopcloud-tfstate-268810572260"
     key            = "primary-us-east-1/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true

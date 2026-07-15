@@ -25,5 +25,5 @@ variable "dr_region" {
 variable "state_bucket" {
   description = "S3 bucket holding all Terraform state files."
   type        = string
-  default     = "shopcloud-tfstate-781863099565"
+  default     = "shopcloud-tfstate-268810572260"
 }

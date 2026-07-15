@@ -12,7 +12,7 @@ variable "github_org" {
 variable "github_repo" {
   description = "GitHub repo name used in the OIDC sub claim."
   type        = string
-  default     = "shopcloud"
+  default     = "shopcloudfork"
 }
 
 variable "terraform_state_bucket" {

@@ -28,8 +28,8 @@ enable_interface_endpoints = false
 # github_repo must match the name you give the repo on GitHub.
 ############################################################
 
-github_org  = "kamelsoubra"
-github_repo = "shopcloud"
+github_org  = "mhmdsh24"
+github_repo = "shopcloudfork"
 
 ############################################################
 # Domain + email. Put a real domain here once you own one in
@@ -67,7 +67,7 @@ vpn_mfa_saml_provider_arn = ""
 #   postgres_backup_retention_days = 7
 ############################################################
 
-postgres_engine_version         = "15.10"
+postgres_engine_version         = "15.18"
 postgres_parameter_group_family = "postgres15"
 postgres_instance_class         = "db.t3.micro"
 postgres_allocated_storage_gb   = 20
@@ -92,8 +92,8 @@ enable_cross_region_replica     = false
 ############################################################
 
 eks_cluster_version     = "1.35"
-eks_node_instance_types = ["t3.micro"]
+eks_node_instance_types = ["t3.small"]
 eks_node_capacity_type  = "ON_DEMAND"
-eks_node_desired_size   = 1
-eks_node_min_size       = 1
-eks_node_max_size       = 1
+eks_node_desired_size   = 2
+eks_node_min_size       = 2
+eks_node_max_size       = 3

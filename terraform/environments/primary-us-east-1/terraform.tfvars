@@ -30,8 +30,8 @@ enable_interface_endpoints = false
 # github_repo must match the name you give the repo on GitHub.
 ############################################################
 
-github_org  = "kamelsoubra"
-github_repo = "shopcloud"
+github_org  = "mhmdsh24"
+github_repo = "shopcloudfork"
 
 ############################################################
 # Domain + email.
@@ -58,7 +58,7 @@ vpn_mfa_saml_provider_arn = "" # cert-only auth; set a real SAML provider ARN to
 # RDS PostgreSQL
 ############################################################
 
-postgres_engine_version         = "15.10"
+postgres_engine_version         = "15.18"
 postgres_parameter_group_family = "postgres15"
 postgres_instance_class         = "db.t3.micro"
 postgres_allocated_storage_gb   = 20
