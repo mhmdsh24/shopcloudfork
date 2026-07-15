@@ -353,6 +353,8 @@ module "eks" {
 
   kms_key_arn = module.secrets.kms_key_arn
 
+  cluster_admin_iam_arns = [module.iam.github_deploy_role_arn]
+
   irsa_service_accounts = {
     catalog = {
       namespace       = "shopcloud"
